@@ -15,7 +15,7 @@ class ToonDevice extends OAuth2Device {
 	 */
 	async onInit() {
 		await super.onInit({
-			apiBaseUrl: 'https://api.toonapi.com/toon/api/v1/',
+			apiBaseUrl: 'https://api.toon.eu/toon/v3/',
 			throttle: 200,
 			rateLimit: {
 				max: 15,

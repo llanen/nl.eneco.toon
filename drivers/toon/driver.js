@@ -6,10 +6,10 @@ const ToonDevice = require('./device.js');
 const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
 
 const oauth2ClientConfig = {
-	url: `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`,
-	tokenEndpoint: 'https://api.toonapi.com/token',
-	key: Homey.env.TOON_KEY,
-	secret: Homey.env.TOON_SECRET,
+	url: `https://api.toon.eu/authorize?response_type=code&redirect_uri=https://callback.athom.com/oauth2/callback/&client_id=${Homey.env.TOON_KEY_V3}&tenant_id=athom`,
+	tokenEndpoint: 'https://api.toon.eu/token',
+	key: Homey.env.TOON_KEY_V3,
+	secret: Homey.env.TOON_SECRET_V3,
 	allowMultipleAccounts: false,
 };
 
