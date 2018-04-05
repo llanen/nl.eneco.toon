@@ -10,7 +10,7 @@ const oauth2ClientConfig = {
 	tokenEndpoint: 'https://api.toon.eu/token',
 	key: Homey.env.TOON_KEY_V3,
 	secret: Homey.env.TOON_SECRET_V3,
-	allowMultipleAccounts: false,
+	allowMultipleAccounts: true,
 };
 
 const API_BASE_URL = 'https://api.toon.eu/toon/v3/';
@@ -23,9 +23,7 @@ class ToonDriver extends OAuth2Driver {
 	onInit() {
 
 		// Start OAuth2Client
-		super.onInit({
-			oauth2ClientConfig,
-		});
+		super.onInit({ oauth2ClientConfig });
 
 		new Homey.FlowCardCondition('temperature_state_is')
 			.register()
@@ -55,7 +53,7 @@ class ToonDriver extends OAuth2Driver {
 	 * @returns {Promise}
 	 */
 	onPairOAuth2ListDevices() {
-		return this.apiCallGet({ uri: 'https://api.toon.eu/toon/v3/agreements' })
+		return this.apiCallGet({ uri: `${API_BASE_URL}agreements` })
 			.then(agreements => {
 				this.log(`got ${agreements.length} agreements`);
 				if (Array.isArray(agreements)) {
@@ -66,6 +64,9 @@ class ToonDriver extends OAuth2Driver {
 						data: {
 							id: agreement.displayCommonName,
 							agreementId: agreement.agreementId,
+						},
+						store: {
+							apiVersion: 3,
 						},
 					}));
 				}

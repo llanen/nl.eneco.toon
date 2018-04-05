@@ -4,6 +4,7 @@
   "offline": "Toon is unreachable",
   "initialization_error": "Something went wrong, error: __error__",
   "unauthenticated": "Toon lost the connection, please re-pair this device",
+  "repair_migration_v3": "Due to an incompatibility between Toon API versions this device needs to be re-paired.",
   "pair": {
     "error": "Something went wrong, please try again... \n__error__",
     "login": "Please login",

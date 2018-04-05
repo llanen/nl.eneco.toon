@@ -13,7 +13,6 @@ const TEMPERATURE_STATES = {
 
 /**
  * TODO: GET webhooks before registering a new one
- * TODO: oauth2 lib 1 account per device test with Toon API
  */
 class ToonDevice extends OAuth2Device {
 
@@ -42,11 +41,15 @@ class ToonDevice extends OAuth2Device {
 		this.powerUsage = {};
 		this.thermostatInfo = {};
 
+		// Device needs to be re-paired on with API v3
+		const apiVersion = this.getStoreValue('apiVersion');
+		if (!apiVersion || apiVersion !== 3) {
+			this.log('migration re-pair needed', Homey.__('repair_migration_v3'));
+			return this.setUnavailable(Homey.__('repair_migration_v3'), null, true);
+		}
+
 		// Indicate Homey is connecting to Toon
 		this.setUnavailable(Homey.__('connecting'));
-
-		// If needed migrate access tokens to new format
-		this.migrateToSDKv2();
 
 		// Register poll interval for refreshing access tokens
 		this.registerPollInterval({
@@ -115,10 +118,11 @@ class ToonDevice extends OAuth2Device {
 	async registerWebhookSubscription() {
 		let webhookIsRegistered = false;
 
-		// Refresh webhooks every 30 minutes
-		// setTimeout(() => {
-		// 	this.registerWebhookSubscription();
-		// }, 1000 * 60 * 30); // 30 min
+		this.log('registerWebhookSubscription()');
+
+		// Refresh webhooks every 60 minutes
+		clearTimeout(this._registerWebhookSubscriptionTimeout);
+		this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 60);
 
 		try {
 			// First end any existing subscription
@@ -193,7 +197,7 @@ class ToonDevice extends OAuth2Device {
 
 	/**
 	 * PUTs to the Toon API to set a new target temperature
-	 * TODO doesn't work flawlessly everytime (maybe due to multiple webhooks coming in simultaneously)
+	 * TODO doesn't work flawlessly every time (maybe due to multiple webhooks coming in simultaneously)
 	 * @param temperature temperature attribute of type integer.
 	 */
 	async setTargetTemperature(temperature) {
@@ -302,7 +306,7 @@ class ToonDevice extends OAuth2Device {
 	 * @param data
 	 * @private
 	 */
-	_processGasUsageData(data ={}) {
+	_processGasUsageData(data = {}) {
 		this.log('process received gasUsage data');
 		this.log(data);
 
@@ -342,25 +346,6 @@ class ToonDevice extends OAuth2Device {
 	}
 
 	/**
-	 * Migrate access tokens from SDKv1 format to SDKv2 format
-	 */
-	migrateToSDKv2() {
-		// Migration from pre-apps sdk v2
-		if (Homey.ManagerSettings.get(`toon_${this.getData().id}_access_token`) &&
-			Homey.ManagerSettings.get(`toon_${this.getData().id}_refresh_token`)) {
-			this.oauth2Account.setTokens({
-				accessToken: Homey.ManagerSettings.get(`toon_${this.getData().id}_access_token`),
-				refreshToken: Homey.ManagerSettings.get(`toon_${this.getData().id}_refresh_token`),
-				expiresIn: new Date(), // Expire date not known, refresh now
-			});
-			setTimeout(() => {
-				Homey.ManagerSettings.unset(`toon_${this.getData().id}_access_token`);
-				Homey.ManagerSettings.unset(`toon_${this.getData().id}_refresh_token`);
-			}, 5000);
-		}
-	}
-
-	/**
 	 * This method will be called when the device has been deleted, it makes
 	 * sure the client is properly destroyed and left over settings are removed.
 	 */
@@ -388,10 +373,10 @@ class ToonDevice extends OAuth2Device {
 	 * @param args
 	 * @returns {*}
 	 */
-	setUnavailable(...args) {
-		if (this._unavailableCounter > 3) {
+	setUnavailable(message, callback, force) {
+		if (this._unavailableCounter > 3 || force) {
 			this.log('mark as unavailable');
-			return super.setUnavailable(args);
+			return super.setUnavailable(message, callback);
 		}
 		this._unavailableCounter = this._unavailableCounter + 1;
 		return Promise.resolve();

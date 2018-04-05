@@ -4,7 +4,7 @@ Let Homey control your Toon®!
 
 Set the target temperature, read the room temperature and display your electricity and gas usage in Insights!
 
-NOTE: The Toon App for Homey has been experiencing some issues lately, this was caused by a unforeseen sudden problem with the Toon API v1. Since this API was also deprecated the bug(s) would not be fixed anytime soon, hence the Toon App for Homey had to be re-written to make use of the new Toon API v3. Since this API is relatively new the App might contain some minor issues (e.g. gas measurements will not work), which will be fixed as soon as possible. Also, beware, Toon API v3 is incompatible with Toon API v1 which means that Toon has to be re-paired to Homey. Our apologies for the inconvenience.
+NOTE: The Toon App for Homey has been experiencing some issues lately, this was caused by a sudden problem with the Toon API v1. Since this API is deprecated the bug(s) would not be fixed anytime soon, hence the Toon App for Homey had to be re-written to make use of the new Toon API v3. Since this API is relatively new the App might contain some minor issues (e.g. gas measurements will not work), which will be fixed as soon as possible. Please report any issues you encounter. Also, beware, Toon API v3 is incompatible with Toon API v1 which means that Toon has to be re-paired to Homey. Our apologies for the inconvenience.
 
 DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
