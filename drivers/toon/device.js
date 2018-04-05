@@ -131,7 +131,7 @@ class ToonDevice extends OAuth2Device {
 			// Detect if a webhook was already registered by Homey
 			if (Array.isArray(webhooks)) {
 				webhooks.forEach(webhook => {
-					if (webhook.applicationId === Homey.env.TOON_KEY_V3 && webhook.callbackUrl === Homey.env.WEBHOOK_CALLBACK_URL) {
+					if (webhook.applicationId === Homey.env.TOON_KEY && webhook.callbackUrl === Homey.env.WEBHOOK_CALLBACK_URL) {
 						webhookIsRegistered = true;
 					}
 				})
@@ -146,7 +146,7 @@ class ToonDevice extends OAuth2Device {
 				await this.apiCallPost({
 					uri: `${this.getData().agreementId}/webhooks`,
 					json: {
-						applicationId: Homey.env.TOON_KEY_V3,
+						applicationId: Homey.env.TOON_KEY,
 						callbackUrl: Homey.env.WEBHOOK_CALLBACK_URL,
 						subscribedActions: ['Thermostat', 'PowerUsage', 'GasUsage']
 					}
