@@ -4,7 +4,7 @@ const Homey = require('homey');
 const Log = require('homey-log').Log;
 
 class ToonApp extends Homey.App {
-	onInit() {
+	async onInit() {
 		this.log(`${this.id} running...`);
 	}
 }
