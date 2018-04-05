@@ -6,12 +6,14 @@ const ToonDevice = require('./device.js');
 const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
 
 const oauth2ClientConfig = {
-	url: `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`,
-	tokenEndpoint: 'https://api.toonapi.com/token',
-	key: Homey.env.TOON_KEY,
-	secret: Homey.env.TOON_SECRET,
-	allowMultipleAccounts: false,
+	url: `https://api.toon.eu/authorize?response_type=code&redirect_uri=https://callback.athom.com/oauth2/callback/&client_id=${Homey.env.TOON_KEY_V3}&tenant_id=eneco`,
+	tokenEndpoint: 'https://api.toon.eu/token',
+	key: Homey.env.TOON_KEY_V3,
+	secret: Homey.env.TOON_SECRET_V3,
+	allowMultipleAccounts: true,
 };
+
+const API_BASE_URL = 'https://api.toon.eu/toon/v3/';
 
 class ToonDriver extends OAuth2Driver {
 
@@ -21,9 +23,7 @@ class ToonDriver extends OAuth2Driver {
 	onInit() {
 
 		// Start OAuth2Client
-		super.onInit({
-			oauth2ClientConfig,
-		});
+		super.onInit({ oauth2ClientConfig });
 
 		new Homey.FlowCardCondition('temperature_state_is')
 			.register()
@@ -53,7 +53,7 @@ class ToonDriver extends OAuth2Driver {
 	 * @returns {Promise}
 	 */
 	onPairOAuth2ListDevices() {
-		return this.apiCallGet({ uri: 'https://api.toonapi.com/toon/api/v1/agreements' })
+		return this.apiCallGet({ uri: `${API_BASE_URL}agreements` })
 			.then(agreements => {
 				this.log(`got ${agreements.length} agreements`);
 				if (Array.isArray(agreements)) {
@@ -64,6 +64,9 @@ class ToonDriver extends OAuth2Driver {
 						data: {
 							id: agreement.displayCommonName,
 							agreementId: agreement.agreementId,
+						},
+						store: {
+							apiVersion: 3,
 						},
 					}));
 				}

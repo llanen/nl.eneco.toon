@@ -4,6 +4,7 @@
   "offline": "Toon is onbereikbaar",
   "initialization_error": "Er ging iets fout, error: __error__",
   "unauthenticated": "Toon is de verbinding kwijt, voeg het apparaat opnieuw toe",
+  "repair_migration_v3": "Vanwege de incompatibiliteit tussen Toon API versies moet dit apparaat opnieuw worden toegevoegd.",
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw... \n__error__",
     "login": "Inloggen",
