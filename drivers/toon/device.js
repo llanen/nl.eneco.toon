@@ -13,6 +13,7 @@ const TEMPERATURE_STATES = {
 
 /**
  * TODO: GET webhooks before registering a new one
+ * TODO: meter_power capability
  */
 class ToonDevice extends OAuth2Device {
 
@@ -120,25 +121,25 @@ class ToonDevice extends OAuth2Device {
 
 		this.log('registerWebhookSubscription()');
 
-		// Refresh webhooks every 60 minutes
+		// Refresh webhooks after 15 minutes of inactivity
 		clearTimeout(this._registerWebhookSubscriptionTimeout);
-		this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 60);
+		this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 15);
 
-		try {
-			// First end any existing subscription
-			const webhooks = await this.apiCallGet({ uri: `${this.getData().agreementId}/webhooks` });
-
-			// Detect if a webhook was already registered by Homey
-			if (Array.isArray(webhooks)) {
-				webhooks.forEach(webhook => {
-					if (webhook.applicationId === Homey.env.TOON_KEY && webhook.callbackUrl === Homey.env.WEBHOOK_CALLBACK_URL) {
-						webhookIsRegistered = true;
-					}
-				})
-			}
-		} catch (err) {
-			this.error('failed to get existing subscriptions', err.message);
-		}
+		// TODO: get current webhook
+		// try {
+		// 	const webhooks = await this.apiCallGet({ uri: `${this.getData().agreementId}/webhooks` });
+		//
+		// 	// Detect if a webhook was already registered by Homey
+		// 	if (Array.isArray(webhooks)) {
+		// 		webhooks.forEach(webhook => {
+		// 			if (webhook.applicationId === Homey.env.TOON_KEY && webhook.callbackUrl === Homey.env.WEBHOOK_CALLBACK_URL) {
+		// 				webhookIsRegistered = true;
+		// 			}
+		// 		})
+		// 	}
+		// } catch (err) {
+		// 	this.error('failed to get existing subscriptions', err.message);
+		// }
 
 		// Start new subscription if not yet registered
 		if (!webhookIsRegistered) {
