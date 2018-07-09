@@ -251,10 +251,12 @@ class ToonDevice extends OAuth2Device {
 	 */
 	_processStatusUpdate(data) {
 		this.log('_processStatusUpdate', new Date().getTime());
-		this.log(data);
 
 		// Data needs to be unwrapped
 		if (data && data.hasOwnProperty('body') && data.body.hasOwnProperty('updateDataSet')) {
+
+			this.log(data.body);
+			this.log(data.body.updateDataSet);
 
 			// Prevent parsing data from other displays
 			if (data.body.hasOwnProperty('commonName') && data.body.commonName !== this.getData().id) return;
@@ -295,10 +297,13 @@ class ToonDevice extends OAuth2Device {
 		this.powerUsage = data;
 
 		// Store new values
-		if (data.hasOwnProperty('value')) {
-			this.log('getThermostatData() -> powerUsage -> measure_power', data.value);
-			this.setCapabilityValue('measure_power', data.value);
+		if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
+			const usage = data.dayUsage + data.dayLowUsage;
+			this.log('getThermostatData() -> powerUsage -> measure_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
+			this.setCapabilityValue('measure_power', usage);
 		}
+
+		// TODO: meter_power
 	}
 
 	/**
