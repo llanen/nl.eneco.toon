@@ -9,6 +9,7 @@ NOTE: The Toon App for Homey has been experiencing some issues lately, this was 
 DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
 ###Changelog
+- 2.0.6: Update environment variables
 - 2.0.5: Fix power meter readings
 - 2.0.0: Update to Toon API v3 which includes realtime webhook support (requires a re-pair due to API v1 and v3 incompatibilities)
 - 1.3.6: Increase refresh tokens interval
