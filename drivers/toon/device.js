@@ -13,7 +13,6 @@ const TEMPERATURE_STATES = {
 
 /**
  * TODO: GET webhooks before registering a new one
- * TODO: meter_power capability
  */
 class ToonDevice extends OAuth2Device {
 
@@ -297,13 +296,17 @@ class ToonDevice extends OAuth2Device {
 		this.powerUsage = data;
 
 		// Store new values
-		if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
-			const usage = data.dayUsage + data.dayLowUsage;
-			this.log('getThermostatData() -> powerUsage -> measure_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
-			this.setCapabilityValue('measure_power', usage);
+		if (data.hasOwnProperty('value')) {
+			this.log('getThermostatData() -> powerUsage -> measure_power -> value:', data.value);
+			this.setCapabilityValue('measure_power', data.value);
 		}
 
-		// TODO: meter_power
+		// Store new values
+		if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
+			const usage = (data.dayUsage + data.dayLowUsage) / 1000; // convert from Wh to KWh
+			this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
+			this.setCapabilityValue('meter_power', usage);
+		}
 	}
 
 	/**
