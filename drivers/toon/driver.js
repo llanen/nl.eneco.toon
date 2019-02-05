@@ -3,27 +3,13 @@
 const Homey = require('homey');
 
 const ToonDevice = require('./device.js');
-const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
-
-const oauth2ClientConfig = {
-	url: `https://api.toon.eu/authorize?response_type=code&redirect_uri=https://callback.athom.com/oauth2/callback/&client_id=${Homey.env.TOON_KEY}&tenant_id=eneco`,
-	tokenEndpoint: 'https://api.toon.eu/token',
-	key: Homey.env.TOON_KEY,
-	secret: Homey.env.TOON_SECRET,
-	allowMultipleAccounts: true,
-};
-
-const API_BASE_URL = 'https://api.toon.eu/toon/v3/';
+const { OAuth2Driver } = require('homey-oauth2app');
 
 class ToonDriver extends OAuth2Driver {
 
-	/**
-	 * This method will be called when the driver initializes, it initializes Flow Cards.
-	 */
-	onInit() {
-
-		// Start OAuth2Client
-		super.onInit({ oauth2ClientConfig });
+	onOAuth2Init() {
+		this.log('onOAuth2Init()');
+		super.onOAuth2Init();
 
 		new Homey.FlowCardCondition('temperature_state_is')
 			.register()
@@ -43,45 +29,45 @@ class ToonDriver extends OAuth2Driver {
 			.register()
 			.registerRunListener(args => args.device.disableProgram());
 
-		this.log('onInit() -> complete, Flow Cards registered');
+		this.log('onOAuth2Init() -> success');
 	}
 
 	/**
-	 * The method will be called during pairing when a list of devices is needed. Only when this class
-	 * extends WifiDriver and provides a oauth2ClientConfig onInit. The data parameter contains an
-	 * temporary OAuth2 account that can be used to fetch the devices from the users account.
-	 * @returns {Promise}
-	 */
-	onPairOAuth2ListDevices() {
-		return this.apiCallGet({ uri: `${API_BASE_URL}agreements` })
-			.then(agreements => {
-				this.log(`got ${agreements.length} agreements`);
-				if (Array.isArray(agreements)) {
-					return agreements.map(agreement => ({
-						name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
+   * The method will be called during pairing when a list of devices is needed. Only when this class
+   * extends WifiDriver and provides a oauth2ClientConfig onInit. The data parameter contains an
+   * temporary OAuth2 account that can be used to fetch the devices from the users account.
+   * @returns {Promise}
+   */
+	async onPairListDevices({ oAuth2Client }) {
+		this.log('onPairListDevices()');
+		let agreements;
+		try {
+			agreements = await oAuth2Client.getAgreements();
+		} catch (err) {
+			this.error('onPairListDevices() -> error, failed to get agreements, reason:', err.message);
+		}
+		this.log(`onPairListDevices() -> got ${agreements.length} agreements`);
+		if (Array.isArray(agreements)) {
+			return agreements.map(agreement => ({
+				name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
 												${agreement.houseNumber} , ${agreement.postalCode} 
 												${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
-						data: {
-							id: agreement.displayCommonName,
-							agreementId: agreement.agreementId,
-						},
-						store: {
-							apiVersion: 3,
-						},
-					}));
-				}
-				return [];
-			})
-			.catch(err => {
-				this.error('failed to get agreements', err.stack);
-				throw err;
-			});
+				data: {
+					id: agreement.displayCommonName,
+					agreementId: agreement.agreementId,
+				},
+				store: {
+					apiVersion: 3,
+				},
+			}));
+		}
+		return [];
 	}
 
 	/**
-	 * Always use ToonDevice as device for this driver.
-	 * @returns {ToonDevice}
-	 */
+   * Always use ToonDevice as device for this driver.
+   * @returns {ToonDevice}
+   */
 	mapDeviceClass() {
 		return ToonDevice;
 	}
