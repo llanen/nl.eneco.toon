@@ -301,7 +301,7 @@ class ToonDevice extends OAuth2Device {
    */
   async onOAuth2Deleted() {
     this.log('onOAuth2Deleted()');
-    await this.oAuth2Client.unregisterWebhookSubscription({ id: this.id });
+    if (this.oAuth2Client) await this.oAuth2Client.unregisterWebhookSubscription({ id: this.id });
     clearTimeout(this._registerWebhookSubscriptionTimeout);
     clearTimeout(this._webhookRegistrationTimeout);
   }
@@ -332,12 +332,12 @@ class ToonDevice extends OAuth2Device {
       let context = this, args = arguments;
       let later = function () {
         timeout = null;
-        if (!immediate) func.apply(context, args);
+        if (!immediate) return func.apply(context, args);
       };
       let callNow = immediate && !timeout;
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
-      if (callNow) func.apply(context, args);
+      if (callNow) return func.apply(context, args);
     };
   };
 
