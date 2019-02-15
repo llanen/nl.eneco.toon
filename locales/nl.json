@@ -2,6 +2,9 @@
   "reconnecting": "Bezig met verbinden...",
   "connecting": "Bezig met verbinden...",
   "offline": "Toon is onbereikbaar",
+  "re-authorize": "Log opnieuw in via de Toon App Instellingen.",
+  "device_absent_in_account": "Apparaat niet gevonden, probeer opnieuw in te loggen met het juiste Toon account.",
+  "oauth2_client_reset_failed": "Er is iets fout gegaan bij het opnieuw inloggen.",
   "initialization_error": "Er ging iets fout, error: __error__",
   "unauthenticated": "Toon is de verbinding kwijt, voeg het apparaat opnieuw toe",
   "repair_migration_v3": "Vanwege de incompatibiliteit tussen Toon API versies moet dit apparaat opnieuw worden toegevoegd.",
@@ -17,5 +20,13 @@
     "retry": "Probeer opnieuw",
     "installed_toon": "Deze Toon® is al geïnstalleerd!",
     "installed_toon_explained": "Het lijkt er op dat de Toon® die verbonden is met dit account reeds geïnstalleerd is op deze Homey, wil je nog een Toon apparaat toevoegen, probeer dan een ander account."
+  },
+  "settings": {
+    "title": "Toon Account",
+    "login_intro": "Klik hier om in te loggen met je Toon account.",
+    "login_button": "Login",
+    "logged_in": "Je bent momenteel ingelogd.",
+    "logout_intro": "Klik hier om uit te loggen.",
+    "logout_button": "Log uit"
   }
 }

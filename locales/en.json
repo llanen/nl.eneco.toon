@@ -2,6 +2,9 @@
   "reconnecting": "Reconnecting...",
   "connecting": "Connecting...",
   "offline": "Toon is unreachable",
+  "re-authorize": "Please re-authorize through the Toon App Settings.",
+  "device_absent_in_account": "Device could not be found, try logging in again with the right Toon account.",
+  "oauth2_client_reset_failed": "Something went wrong when logging in.",
   "initialization_error": "Something went wrong, error: __error__",
   "unauthenticated": "Toon lost the connection, please re-pair this device",
   "repair_migration_v3": "Due to an incompatibility between Toon API versions this device needs to be re-paired.",
@@ -17,5 +20,13 @@
     "retry": "Retry",
     "installed_toon": "This Toon® was already installed!",
     "installed_toon_explained": "It seems that the Toon® connected to this account was already installed on this Homey, please try a different account if you would like to add another Toon device."
+  },
+  "settings": {
+    "title": "Toon Account",
+    "login_intro": "Click here to login with your Toon account.",
+    "login_button": "Login",
+    "logged_in": "You are currently logged in.",
+    "logout_intro": "Click here to logout.",
+    "logout_button": "Logout"
   }
 }

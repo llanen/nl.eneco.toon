@@ -41,6 +41,40 @@ class ToonDevice extends OAuth2Device {
   }
 
   /**
+   * Method that takes a sessionId and configId, finds the OAuth2Client based on that, then binds the new OAuth2Client
+   * instance to this HomeyDevice instance. Basically it allows switching OAuth2Clients on a HomeyDevice.
+   * @param {string} sessionId
+   * @param {string} configId
+   * @returns {Promise<void>}
+   */
+  async resetOAuth2Client({ sessionId, configId }) {
+
+    // Store updated client config
+    await this.setStoreValue('OAuth2SessionId', sessionId);
+    await this.setStoreValue('OAuth2ConfigId', configId);
+
+    // Check if client exists then bind it to this instance
+    let client;
+    if (Homey.app.hasOAuth2Client({ configId, sessionId })) {
+      client = Homey.app.getOAuth2Client({ configId, sessionId });
+    } else {
+      this.error('OAuth2Client reset failed');
+      return this.setUnavailable(Homey.__('oauth2_client_reset_failed'));
+    }
+
+    // Rebind new oAuth2Client
+    this.oAuth2Client = client; // TODO: is this safe?
+
+    // Check if device agreementId is present in OAuth2 account
+    const agreements = await this.oAuth2Client.getAgreements();
+    if (Array.isArray(agreements) &&
+      agreements.find(agreement => agreement.agreementId === this.id)) {
+      return this.setAvailable();
+    }
+    return this.setUnavailable(Homey.__('device_absent_in_account'));
+  }
+
+  /**
    * Getter for agreementId.
    * @returns {*}
    */
@@ -301,7 +335,7 @@ class ToonDevice extends OAuth2Device {
    */
   async onOAuth2Deleted() {
     this.log('onOAuth2Deleted()');
-    await this.oAuth2Client.unregisterWebhookSubscription({ id: this.id });
+    if (this.oAuth2Client) await this.oAuth2Client.unregisterWebhookSubscription({ id: this.id });
     clearTimeout(this._registerWebhookSubscriptionTimeout);
     clearTimeout(this._webhookRegistrationTimeout);
   }
@@ -332,12 +366,12 @@ class ToonDevice extends OAuth2Device {
       let context = this, args = arguments;
       let later = function () {
         timeout = null;
-        if (!immediate) func.apply(context, args);
+        if (!immediate) return func.apply(context, args);
       };
       let callNow = immediate && !timeout;
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
-      if (callNow) func.apply(context, args);
+      if (callNow) return func.apply(context, args);
     };
   };
 
