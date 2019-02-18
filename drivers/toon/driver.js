@@ -1,6 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
+const Log = require('homey-log').Log;
 
 const ToonDevice = require('./device.js');
 const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
@@ -24,6 +25,19 @@ class ToonDriver extends OAuth2Driver {
 
 		// Start OAuth2Client
 		super.onInit({ oauth2ClientConfig });
+
+		// TODO: remove this
+		try {
+			const reportedDevicesSetting = Homey.ManagerSettings.get('reported_devices');
+			if (!reportedDevicesSetting) {
+				this.log(`Capture message 'installed_toon_devices' amount: ${this.getDevices().length}`);
+				Log.setTags({ amount: this.getDevices().length });
+				Log.captureMessage('installed_toon_devices', { amount: this.getDevices().length });
+				Homey.ManagerSettings.set('reported_devices', true);
+			}
+		} catch (err) {
+			this.error('Could not capture message \'installed_toon_devices\'', err);
+		}
 
 		new Homey.FlowCardCondition('temperature_state_is')
 			.register()
