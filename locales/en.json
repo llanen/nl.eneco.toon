@@ -1,4 +1,5 @@
 {
+  "max_one_device_notification": "It appears you have more than one Toon installed on your Homey, unfortunately this is not supported and we can not guarantee that it will work. Please remove your Toon devices and re-install only one.",
   "settings": {
     "title": "Toon Account",
     "login_intro": "Click here to login with your Toon account.",

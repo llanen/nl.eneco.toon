@@ -10,7 +10,7 @@ const TOON_DRIVER_NAME = 'toon';
 
 class ToonApp extends OAuth2App {
 
-	onOAuth2Init() {
+	async onOAuth2Init() {
 		this.enableOAuth2Debug();
 		this.setOAuth2Config({
 			client: ToonOAuth2Client,
@@ -22,6 +22,13 @@ class ToonApp extends OAuth2App {
 		});
 
 		this.log(`${this.id} running...`);
+
+		// TODO: remove after nl.eneco.toon@2.1.6 hits stable
+		const installedDevices = this.ToonDriver.getDevices();
+		if (installedDevices.length > 1) {
+			const notification = new Homey.Notification({ excerpt: Homey.__('max_one_device_notification') });
+			await notification.register();
+		}
 	}
 
 	get ToonDriver() {

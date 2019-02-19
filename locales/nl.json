@@ -1,4 +1,5 @@
 {
+  "max_one_device_notification": "Je hebt meer dan één Toon geïnstalleerd, dit is helaas niet ondersteund en werkt mogelijk niet. Verwijder alle Toon apparaten van Homey en installeer er één terug.",
   "settings": {
     "title": "Toon Account",
     "login_intro": "Klik hier om in te loggen met je Toon account.",
