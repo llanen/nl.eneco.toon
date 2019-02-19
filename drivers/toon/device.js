@@ -18,12 +18,13 @@ class ToonDevice extends OAuth2Device {
     this.log('onOAuth2Init()');
 
     // Indicate Homey is connecting to Toon
-    await this.setUnavailable(Homey.__('connecting'));
+    await this.setUnavailable(Homey.__('authentication.connecting'));
 
     // Store raw data
     this.gasUsage = {};
     this.powerUsage = {};
     this.thermostatInfo = {};
+    this.temperatureStatesMap = {};
 
     // Register capability listeners
     this.registerCapabilityListener('temperature_state', ToonDevice.debounce(this.onCapabilityTemperatureState.bind(this), 500));
@@ -59,11 +60,11 @@ class ToonDevice extends OAuth2Device {
       client = Homey.app.getOAuth2Client({ configId, sessionId });
     } else {
       this.error('OAuth2Client reset failed');
-      return this.setUnavailable(Homey.__('oauth2_client_reset_failed'));
+      return this.setUnavailable(Homey.__('authentication.re-login_failed'));
     }
 
     // Rebind new oAuth2Client
-    this.oAuth2Client = client; // TODO: is this safe?
+    this.oAuth2Client = client;
 
     // Check if device agreementId is present in OAuth2 account
     const agreements = await this.oAuth2Client.getAgreements();
@@ -71,7 +72,7 @@ class ToonDevice extends OAuth2Device {
       agreements.find(agreement => agreement.agreementId === this.id)) {
       return this.setAvailable();
     }
-    return this.setUnavailable(Homey.__('device_absent_in_account'));
+    return this.setUnavailable(Homey.__('authentication.device_not_found'));
   }
 
   /**
@@ -108,11 +109,10 @@ class ToonDevice extends OAuth2Device {
    * Method that will register a Homey webhook which listens for incoming events related to this specific device.
    */
   registerWebhook() {
-    const debouncedMessageHandler = this._processStatusUpdate.bind(this);
     return new Homey.CloudWebhook(Homey.env.WEBHOOK_ID, Homey.env.WEBHOOK_SECRET, {
       displayCommonName: this.getData().id,
     })
-      .on('message', debouncedMessageHandler)
+      .on('message', this._processStatusUpdate.bind(this))
       .register()
   }
 
@@ -153,13 +153,16 @@ class ToonDevice extends OAuth2Device {
     const stateId = TEMPERATURE_STATES[state];
     const data = { ...this.thermostatInfo, activeState: stateId, programState: keepProgram ? 2 : 0 };
 
-    this.log(`updateState() -> set state to ${stateId} (${state}), data: {activeState: ${stateId}}`);
+    this.log(`updateState() -> set state to ${stateId} (${state}, temp: ${this.temperatureStatesMap[stateId]}), data: {activeState: ${stateId}}`);
 
     try {
       await this.oAuth2Client.updateState({ id: this.id, data });
+      if (stateId >= 0) { // Do not try to update target temperature for unknown state
+        await this.setCapabilityValue('target_temperature', Math.round((this.temperatureStatesMap[stateId] / 100) * 10) / 10);
+      }
     } catch (err) {
       this.error(`updateState() -> error, failed to set temperature state to ${state} (${stateId})`, err.stack);
-      throw err;
+      throw new Error(Homey.__('capability.error_set_temperature_state', {error: err.message || err.toString()}));
     }
 
     this.log(`updateState() -> success setting temperature state to ${state} (${stateId})`);
@@ -177,7 +180,7 @@ class ToonDevice extends OAuth2Device {
 
     if (!temperature) {
       this.error('setTargetTemperature() -> error, invalid temperature');
-      return Promise.reject(new Error('missing_temperature_argument'));
+      throw new Error(Homey.__('capability.error_set_target_temperature', { error: err.message || err.toString() }))
     }
 
     this.setCapabilityValue('target_temperature', temperature).catch(this.error);
@@ -185,10 +188,11 @@ class ToonDevice extends OAuth2Device {
     return this.oAuth2Client.updateState({ id: this.id, data })
       .then(() => {
         this.log(`setTargetTemperature() -> success setting temperature to ${temperature}`);
+        this.setCapabilityValue('temperature_state', 'none').catch(this.error);
         return temperature;
       }).catch(err => {
         this.error(`setTargetTemperature() -> error, failed to set temperature to ${temperature}`, err.stack);
-        throw err;
+        throw new Error(Homey.__('capability.error_set_target_temperature', { error: err.message || err.toString() }));
       });
   }
 
@@ -205,7 +209,7 @@ class ToonDevice extends OAuth2Device {
         return args;
       }).catch(err => {
         this.error(`enableProgram() -> error`, err.stack);
-        throw err;
+        throw new Error(Homey.__('capability.error_enable_program', { error: err.message || err.toString() }));
       });
   }
 
@@ -222,7 +226,7 @@ class ToonDevice extends OAuth2Device {
         return args;
       }).catch(err => {
         this.error(`disableProgram() -> error`, err.stack);
-        throw err;
+        throw new Error(Homey.__('capability.error_disable_program', { error: err.message || err.toString() }));
       });
   }
 
@@ -249,6 +253,14 @@ class ToonDevice extends OAuth2Device {
       }
 
       const dataRootObject = data.body.updateDataSet;
+
+      // Keep updated list of thermostat state temperatures
+      if (dataRootObject.hasOwnProperty('thermostatStates') &&
+        Array.isArray(dataRootObject.thermostatStates.state)) {
+        for (const { id, tempValue } of dataRootObject.thermostatStates.state) {
+          this.temperatureStatesMap[id] = tempValue
+        }
+      }
 
       // Check for power usage information
       if (dataRootObject.hasOwnProperty('powerUsage')) {
@@ -353,27 +365,29 @@ class ToonDevice extends OAuth2Device {
   /**
    * Returns a function, that, as long as it continues to be invoked, will not
    * be triggered. The function will be called after it stops being called for
-   * N milliseconds. If `immediate` is passed, trigger the function on the
-   * leading edge, instead of the trailing.
-   * @param func
+   * N milliseconds.
+   * @param fn
    * @param wait
-   * @param immediate
    * @returns {Function}
    */
-  static debounce(func, wait, immediate) {
-    let timeout;
-    return function () {
-      let context = this, args = arguments;
-      let later = function () {
-        timeout = null;
-        if (!immediate) return func.apply(context, args);
-      };
-      let callNow = immediate && !timeout;
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-      if (callNow) return func.apply(context, args);
+  static debounce(fn, wait = 0) {
+    let timer = null;
+    let resolves = [];
+
+    return function (...args) {
+      // Run the function after a certain amount of time
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Get the result of the inner function, then apply it to the resolve function of
+        // each promise that has been created since the last time the inner function was run
+        let result = fn(...args);
+        resolves.forEach(r => r(result));
+        resolves = [];
+      }, wait);
+
+      return new Promise(r => resolves.push(r));
     };
-  };
+  }
 
   /**
    * Migrates OAuth access token from 2.0.x to 2.1.x
@@ -381,6 +395,7 @@ class ToonDevice extends OAuth2Device {
    * @returns {{sessionId: *, configId: *, token: *}}
    */
   onOAuth2Migrate() {
+    this.log('onOAuth2Migrate()');
     const oauth2AccountStore = this.getStoreValue('oauth2Account');
 
     if (!oauth2AccountStore)
@@ -397,6 +412,11 @@ class ToonDevice extends OAuth2Device {
 
     const sessionId = OAuth2Util.getRandomId();
     const configId = this.getDriver().getOAuth2ConfigId();
+    this.log('onOAuth2Migrate() -> migration succeeded', {
+      sessionId,
+      configId,
+      token,
+    });
 
     return {
       sessionId,

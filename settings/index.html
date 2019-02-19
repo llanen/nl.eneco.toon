@@ -44,6 +44,9 @@
   function onHomeyReady(Homey) {
     Homey.on('url', url => Homey.openURL(url));
     Homey.on('authorized', () => showLogout());
+    Homey.on('error', err => {
+      if (err) return Homey.alert(err.message || err);
+    });
     Homey.api('GET', '/login/', {}, function (err, loggedIn) {
       if (loggedIn) {
         showLogout()
