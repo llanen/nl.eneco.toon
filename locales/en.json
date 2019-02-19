@@ -1,4 +1,5 @@
 {
+  "max_one_device_notification": "It appears you have more than one Toon installed on your Homey, unfortunately this is not supported and we can not guarantee that it will work. To prevent issues turn off automatic updates for the Toon App, or remove all your Toon devices and re-install only one.",
   "reconnecting": "Reconnecting...",
   "connecting": "Connecting...",
   "offline": "Toon is unreachable",

@@ -1,4 +1,5 @@
 {
+  "max_one_device_notification": "Je hebt meer dan één Toon geïnstalleerd, dit is helaas niet ondersteund en werkt mogelijk niet. Schakel automatische updates voor de Toon App uit om problemen met toekomstige updates te voorkomen, of verwijder alle Toon apparaten van Homey en installeer er één terug.",
   "reconnecting": "Bezig met verbinden...",
   "connecting": "Bezig met verbinden...",
   "offline": "Toon is onbereikbaar",
