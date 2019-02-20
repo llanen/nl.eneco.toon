@@ -11,7 +11,7 @@ class ToonApp extends Homey.App {
 		setTimeout(async () => {
 			const notificationSendAlready = Homey.ManagerSettings.get('max_one_device_notification_send');
 			const installedDevices = Homey.ManagerDrivers.getDriver('toon').getDevices();
-			if (!notificationSendAlready && installedDevices.length >= 1) {
+			if (!notificationSendAlready && installedDevices.length > 1) {
 				const notification = new Homey.Notification({ excerpt: Homey.__('max_one_device_notification') });
 				await notification.register();
 				Homey.ManagerSettings.set('max_one_device_notification_send', true);
