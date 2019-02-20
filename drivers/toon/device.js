@@ -30,8 +30,7 @@ class ToonDevice extends OAuth2Device {
     this.registerCapabilityListener('temperature_state', ToonDevice.debounce(this.onCapabilityTemperatureState.bind(this), 500));
     this.registerCapabilityListener('target_temperature', ToonDevice.debounce(this.onCapabilityTargetTemperature.bind(this), 500));
 
-    // Register and start listening for webhooks
-    await this.registerWebhook();
+    // Start listening for webhooks
     await this.registerWebhookSubscription();
 
     // Fetch initial data
@@ -106,17 +105,6 @@ class ToonDevice extends OAuth2Device {
   }
 
   /**
-   * Method that will register a Homey webhook which listens for incoming events related to this specific device.
-   */
-  registerWebhook() {
-    return new Homey.CloudWebhook(Homey.env.WEBHOOK_ID, Homey.env.WEBHOOK_SECRET, {
-      displayCommonName: this.getData().id,
-    })
-      .on('message', this._processStatusUpdate.bind(this))
-      .register()
-  }
-
-  /**
    * Method that will request a subscription for webhook events for the next hour.
    * @returns {Promise<void>}
    */
@@ -128,7 +116,7 @@ class ToonDevice extends OAuth2Device {
     this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 15);
 
     // Start new subscription
-    await this.oAuth2Client.registerWebhookSubscription({ id: this.id });
+    await this.oAuth2Client.registerWebhookSubscription({ id: this.id, homeyId: await Homey.ManagerCloud.getHomeyId() });
   }
 
   /**
@@ -138,7 +126,7 @@ class ToonDevice extends OAuth2Device {
   async getStatusUpdate() {
     try {
       const data = await this.oAuth2Client.getStatus({ id: this.id });
-      this._processStatusUpdate({ body: { updateDataSet: data } });
+      this.processStatusUpdate({ body: { updateDataSet: data } });
     } catch (err) {
       this.error('getStatusUpdate() -> error, failed to retrieve status update', err.message);
     }
@@ -236,8 +224,8 @@ class ToonDevice extends OAuth2Device {
    * @param data
    * @private
    */
-  _processStatusUpdate(data) {
-    this.log('_processStatusUpdate', new Date().getTime());
+  processStatusUpdate(data) {
+    this.log('processStatusUpdate', new Date().getTime());
 
     // Data needs to be unwrapped
     if (data && data.hasOwnProperty('body') && data.body.hasOwnProperty('updateDataSet')) {

@@ -36,6 +36,12 @@ class ToonApp extends OAuth2App {
 		}, 5000); // TODO: hacky, getDevices returns [] if called directly upon init
 	}
 
+	getToonDevicesByCommonName(commonName) {
+		return this.ToonDriver
+			.getDevices()
+			.filter(device => device.getData().id === commonName);
+	}
+
 	get ToonDriver() {
 		return Homey.ManagerDrivers.getDriver(TOON_DRIVER_NAME);
 	}
