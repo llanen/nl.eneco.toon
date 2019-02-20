@@ -1,7 +1,7 @@
 {
   "id": "nl.eneco.toon",
-  "version": "2.1.9",
-  "compatibility": ">=1.5.0",
+  "version": "2.1.10",
+  "compatibility": ">=2.0.0",
   "sdk": 2,
   "name": {
     "en": "Toon®",
