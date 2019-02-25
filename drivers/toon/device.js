@@ -11,7 +11,8 @@ const TEMPERATURE_STATES = {
   none: -1
 };
 
-//TODO: remove flow cards (>=2.0.0 compatible)
+// TODO: remove flow cards (>=2.0.0 compatible)
+// TODO: remove OAuth2 migration code after a while
 class ToonDevice extends OAuth2Device {
 
   async onOAuth2Init() {
