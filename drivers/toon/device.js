@@ -31,14 +31,13 @@ class ToonDevice extends OAuth2Device {
     this.registerCapabilityListener('temperature_state', ToonDevice.debounce(this.onCapabilityTemperatureState.bind(this), 500));
     this.registerCapabilityListener('target_temperature', ToonDevice.debounce(this.onCapabilityTargetTemperature.bind(this), 500));
 
-    // Start listening for webhooks
-    await this.registerWebhookSubscription();
+    // Fetch initial data update and start listening for webhooks
+    await Promise.all([this.getStatusUpdate(), this.registerWebhookSubscription()])
+      .catch(err => this.error('onOAuth2Init() -> error occured while fetching status update or registering webhook subscription', err.message || err.toString()));
 
-    // Fetch initial data
-    await this.getStatusUpdate();
     await this.setAvailable();
-    this.log('onOAuth2Init() -> success');
 
+    this.log('onOAuth2Init() -> success');
   }
 
   /**
@@ -116,8 +115,18 @@ class ToonDevice extends OAuth2Device {
     clearTimeout(this._registerWebhookSubscriptionTimeout);
     this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 15);
 
-    // Start new subscription
-    await this.oAuth2Client.registerWebhookSubscription({ id: this.id, homeyId: await Homey.ManagerCloud.getHomeyId() });
+    try {
+      // Start new subscription
+      await this.oAuth2Client.registerWebhookSubscription({
+        id: this.id,
+        homeyId: await Homey.ManagerCloud.getHomeyId()
+      });
+    } catch (err) {
+      this.error('Failed to register webhook subscription, reason', err.message || err.toString());
+
+      // Set warning on device that data might not be coming in
+      await this.setWarning(Homey.__('api.error_webhook_registration'));
+    }
   }
 
   /**
@@ -151,7 +160,7 @@ class ToonDevice extends OAuth2Device {
       }
     } catch (err) {
       this.error(`updateState() -> error, failed to set temperature state to ${state} (${stateId})`, err.stack);
-      throw new Error(Homey.__('capability.error_set_temperature_state', {error: err.message || err.toString()}));
+      throw new Error(Homey.__('capability.error_set_temperature_state', { error: err.message || err.toString() }));
     }
 
     this.log(`updateState() -> success setting temperature state to ${state} (${stateId})`);

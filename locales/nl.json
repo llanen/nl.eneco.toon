@@ -25,6 +25,7 @@
     "retry": "Er ging iets fout, probeer het later opnieuw.",
     "error_login_failed": "Kon niet inloggen (error: __error___)",
     "error_logout_failed": "Kon niet uitloggen (error: __error___)",
-    "error_get_authenticated_state": "Kon login status niet ophalen (error: __error___)"
+    "error_get_authenticated_state": "Kon login status niet ophalen (error: __error___)",
+    "error_webhook_registration": "De Toon API geeft een foutmelding, mogelijk werkt het apparaat niet zoals verwacht."
   }
 }
