@@ -121,6 +121,7 @@ class ToonDevice extends OAuth2Device {
         id: this.id,
         homeyId: await Homey.ManagerCloud.getHomeyId()
       });
+      await this.setWarning(null); // Unset warning
     } catch (err) {
       this.error('Failed to register webhook subscription, reason', err.message || err.toString());
 
