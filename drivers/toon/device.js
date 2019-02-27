@@ -8,6 +8,15 @@ const TEMPERATURE_STATES = {
   home: 1,
   sleep: 2,
   away: 3,
+  holiday: 4, // Reported state by API but not settable
+  none: -1
+};
+
+const THERMOSTAT_PROGRAM_STATES = {
+  off: 0,
+  on: 1,
+  override: 2,
+  holiday: 4,
   none: -1
 };
 
@@ -336,7 +345,16 @@ class ToonDevice extends OAuth2Device {
       this.setCapabilityValue('target_temperature', Math.round((data.currentSetpoint / 100) * 10) / 10).catch(this.error);
     }
     if (data.hasOwnProperty('activeState')) {
-      this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState)).catch(this.error);
+	  var activeState = ToonDevice.getKey(TEMPERATURE_STATES, data.activeState);
+	  // Ignore holiday as a valid state
+	  if (activeState === 'holiday')
+		activeState = 'none';
+      this.setCapabilityValue('temperature_state', activeState).catch(this.error);
+    }
+    if (data.hasOwnProperty('programState')) {
+	  const programState = ToonDevice.getKey(THERMOSTAT_PROGRAM_STATES, data.programState);
+	  // For now only check for the holiday state
+	  this.setCapabilityValue('holiday_active', programState === 'holiday').catch(this.error);
     }
   }
 
