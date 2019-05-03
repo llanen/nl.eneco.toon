@@ -1,459 +1,436 @@
 'use strict';
 
 const Homey = require('homey');
-const OAuth2Device = require('homey-wifidriver').OAuth2Device;
+const { OAuth2Device, OAuth2Token, OAuth2Util } = require('homey-oauth2app');
 
 const TEMPERATURE_STATES = {
-	comfort: 0,
-	home: 1,
-	sleep: 2,
-	away: 3,
-	none: -1
+  comfort: 0,
+  home: 1,
+  sleep: 2,
+  away: 3,
+  none: -1
 };
 
-/**
- * TODO: GET webhooks before registering a new one
- */
+// TODO: remove flow cards (>=2.0.0 compatible)
+// TODO: remove OAuth2 migration code after a while
 class ToonDevice extends OAuth2Device {
 
-	/**
-	 * This method will be called when a new device has been added
-	 * or when the driver reboots with installed devices. It creates
-	 * a new ToonAPI client and sets the correct agreement.
-	 */
-	async onInit() {
-		await super.onInit({
-			apiBaseUrl: `https://api.toon.eu/toon/v3/`,
-			throttle: 200,
-			rateLimit: {
-				max: 15,
-				per: 60000,
-			},
-		}).catch(err => {
-			this.error('Error onInit', err.stack);
-			return err;
-		});
+  async onOAuth2Init() {
+    this.log('onOAuth2Init()');
 
-		this.log('init ToonDevice');
+    // Indicate Homey is connecting to Toon
+    await this.setUnavailable(Homey.__('authentication.connecting'));
 
-		// Store raw data
-		this.gasUsage = {};
-		this.powerUsage = {};
-		this.thermostatInfo = {};
+    // Store raw data
+    this.gasUsage = {};
+    this.powerUsage = {};
+    this.thermostatInfo = {};
+    this.temperatureStatesMap = {};
 
-		// Device needs to be re-paired on with API v3
-		const apiVersion = this.getStoreValue('apiVersion');
-		if (!apiVersion || apiVersion !== 3) {
-			this.log('migration re-pair needed', Homey.__('repair_migration_v3'));
-			return this.setUnavailable(Homey.__('repair_migration_v3'), null, true);
-		}
+    // Register capability listeners
+    this.registerCapabilityListener('temperature_state', ToonDevice.debounce(this.onCapabilityTemperatureState.bind(this), 500));
+    this.registerCapabilityListener('target_temperature', ToonDevice.debounce(this.onCapabilityTargetTemperature.bind(this), 500));
 
-		// Indicate Homey is connecting to Toon
-		this.setUnavailable(Homey.__('connecting'));
+    // Fetch initial data update and start listening for webhooks
+    await Promise.all([this.getStatusUpdate(), this.registerWebhookSubscription()])
+      .catch(err => this.error('onOAuth2Init() -> error occured while fetching status update or registering webhook subscription', err.message || err.toString()));
 
-		// Register poll interval for refreshing access tokens
-		this.registerPollInterval({
-			id: 'refreshTokens',
-			fn: this.oauth2Account.refreshAccessTokens.bind(this.oauth2Account),
-			interval: 6 * 60 * 60 * 1000, // 6 hours
-		});
+    await this.setAvailable();
 
-		// Refresh tokens (in case Homey has been offline for a while)
-		try {
-			await this.oauth2Account.refreshAccessTokens();
-		} catch (err) {
-			this.error('onInit() -> refresh access tokens failed', err);
-		}
+    this.log('onOAuth2Init() -> success');
+  }
 
-		// Register capability listeners
-		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
-		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
+  /**
+   * Method that takes a sessionId and configId, finds the OAuth2Client based on that, then binds the new OAuth2Client
+   * instance to this HomeyDevice instance. Basically it allows switching OAuth2Clients on a HomeyDevice.
+   * @param {string} sessionId
+   * @param {string} configId
+   * @returns {Promise<void>}
+   */
+  async resetOAuth2Client({ sessionId, configId }) {
 
-		// Register webhook and start subscription
-		await this.registerWebhook();
-		await this.registerWebhookSubscription();
+    // Store updated client config
+    await this.setStoreValue('OAuth2SessionId', sessionId);
+    await this.setStoreValue('OAuth2ConfigId', configId);
 
-		// Fetch initial data
-		await this.getStatusUpdate();
-	}
+    // Check if client exists then bind it to this instance
+    let client;
+    if (Homey.app.hasOAuth2Client({ configId, sessionId })) {
+      client = Homey.app.getOAuth2Client({ configId, sessionId });
+    } else {
+      this.error('OAuth2Client reset failed');
+      return this.setUnavailable(Homey.__('authentication.re-login_failed'));
+    }
 
-	/**
-	 * This method will be called when the target temperature needs to be changed.
-	 * @param temperature
-	 * @param options
-	 * @returns {Promise}
-	 */
-	onCapabilityTargetTemperature(temperature, options) {
-		this.log('onCapabilityTargetTemperature()', 'temperature:', temperature, 'options:', options);
-		return this.setTargetTemperature(Math.round(temperature * 2) / 2);
-	}
+    // Rebind new oAuth2Client
+    this.oAuth2Client = client;
 
-	/**
-	 * This method will be called when the temperature state needs to be changed.
-	 * @param state
-	 * @param resumeProgram Abort or resume program
-	 * @returns {Promise}
-	 */
-	onCapabilityTemperatureState(state, resumeProgram) {
-		this.log('onCapabilityTemperatureState()', 'state:', state, 'resumeProgram:', resumeProgram);
-		return this.updateState(state, resumeProgram);
-	}
+    // Check if device agreementId is present in OAuth2 account
+    const agreements = await this.oAuth2Client.getAgreements();
+    if (Array.isArray(agreements) &&
+      agreements.find(agreement => agreement.agreementId === this.id)) {
+      return this.setAvailable();
+    }
+    return this.setUnavailable(Homey.__('authentication.device_not_found'));
+  }
 
-	/**
-	 * Method that will register a Homey webhook which listens for incoming events related to this specific device.
-	 */
-	registerWebhook() {
-		const debouncedMessageHandler = debounce(this._processStatusUpdate.bind(this), 500, true);
-		return new Homey.CloudWebhook(Homey.env.WEBHOOK_ID, Homey.env.WEBHOOK_SECRET, {
-			displayCommonName: this.getData().id,
-		})
-			.on('message', debouncedMessageHandler)
-			.register()
-	}
+  /**
+   * Getter for agreementId.
+   * @returns {*}
+   */
+  get id() {
+    return this.getData().agreementId;
+  }
 
-	/**
-	 * Method that will request a subscription for webhook events for the next hour.
-	 * @returns {Promise<void>}
-	 */
-	async registerWebhookSubscription() {
-		let webhookIsRegistered = false;
+  /**
+   * This method will be called when the target temperature needs to be changed.
+   * @param temperature
+   * @param options
+   * @returns {Promise}
+   */
+  onCapabilityTargetTemperature(temperature, options) {
+    this.log('onCapabilityTargetTemperature() ->', 'temperature:', temperature, 'options:', options);
+    return this.setTargetTemperature(Math.round(temperature * 2) / 2);
+  }
 
-		this.log('registerWebhookSubscription()');
+  /**
+   * This method will be called when the temperature state needs to be changed.
+   * @param state
+   * @param resumeProgram Abort or resume program
+   * @returns {Promise}
+   */
+  onCapabilityTemperatureState(state, resumeProgram) {
+    this.log('onCapabilityTemperatureState() ->', 'state:', state, 'resumeProgram:', resumeProgram);
+    return this.updateState(state, resumeProgram);
+  }
 
-		// Refresh webhooks after 15 minutes of inactivity
-		clearTimeout(this._registerWebhookSubscriptionTimeout);
-		this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 15);
+  /**
+   * Method that will request a subscription for webhook events for the next hour.
+   * @returns {Promise<void>}
+   */
+  async registerWebhookSubscription() {
+    this.log('registerWebhookSubscription()');
 
-		// TODO: get current webhook
-		// try {
-		// 	const webhooks = await this.apiCallGet({ uri: `${this.getData().agreementId}/webhooks` });
-		//
-		// 	// Detect if a webhook was already registered by Homey
-		// 	if (Array.isArray(webhooks)) {
-		// 		webhooks.forEach(webhook => {
-		// 			if (webhook.applicationId === Homey.env.TOON_KEY && webhook.callbackUrl === Homey.env.WEBHOOK_CALLBACK_URL) {
-		// 				webhookIsRegistered = true;
-		// 			}
-		// 		})
-		// 	}
-		// } catch (err) {
-		// 	this.error('failed to get existing subscriptions', err.message);
-		// }
+    // Refresh webhooks after 15 minutes
+    clearTimeout(this._registerWebhookSubscriptionTimeout);
+    this._registerWebhookSubscriptionTimeout = setTimeout(() => this.registerWebhookSubscription(), 1000 * 60 * 15);
 
-		// Start new subscription if not yet registered
-		if (!webhookIsRegistered) {
-			try {
-				await this.apiCallPost({
-					uri: `${this.getData().agreementId}/webhooks`,
-					json: {
-						applicationId: Homey.env.TOON_KEY,
-						callbackUrl: Homey.env.WEBHOOK_CALLBACK_URL,
-						subscribedActions: ['Thermostat', 'PowerUsage', 'GasUsage']
-					}
-				});
-			} catch (err) {
-				this.error('failed to register webhook subscription', err.message);
+    try {
+      // Start new subscription
+      await this.oAuth2Client.registerWebhookSubscription({
+        id: this.id,
+        homeyId: await Homey.ManagerCloud.getHomeyId()
+      });
+      await this.setWarning(null); // Unset warning
+    } catch (err) {
+      this.error('Failed to register webhook subscription, reason', err.message || err.toString());
 
-				// Pass error
-				throw err;
-			}
-		}
-	}
+      // Set warning on device that data might not be coming in
+      await this.setWarning(Homey.__('api.error_webhook_registration'));
+    }
+  }
 
-	/**
-	 * This method will retrieve temperature, gas and electricity data from the Toon API.
-	 * @returns {Promise}
-	 */
-	async getStatusUpdate() {
-		try {
-			const data = await this.apiCallGet({ uri: `${this.getData().agreementId}/status` });
-			this._processStatusUpdate({ body: { updateDataSet: data } });
-		} catch (err) {
-			this.error('failed to retrieve status update', err.message);
-		}
-	}
+  /**
+   * This method will retrieve temperature, gas and electricity data from the Toon API.
+   * @returns {Promise}
+   */
+  async getStatusUpdate() {
+    try {
+      const data = await this.oAuth2Client.getStatus({ id: this.id });
+      this.processStatusUpdate({ body: { updateDataSet: data } });
+    } catch (err) {
+      this.error('getStatusUpdate() -> error, failed to retrieve status update', err.message);
+    }
+  }
 
-	/**
-	 * Set the state of the device, overrides the program.
-	 * @param state ['away', 'home', 'sleep', 'comfort']
-	 * @param keepProgram - if true program will resume after state change
-	 */
-	async updateState(state, keepProgram) {
-		const stateId = TEMPERATURE_STATES[state];
-		const data = { ...this.thermostatInfo, activeState: stateId, programState: keepProgram ? 2 : 0 };
+  /**
+   * Set the state of the device, overrides the program.
+   * @param state ['away', 'home', 'sleep', 'comfort']
+   * @param keepProgram - if true program will resume after state change
+   */
+  async updateState(state, keepProgram) {
+    const stateId = TEMPERATURE_STATES[state];
+    const data = { ...this.thermostatInfo, activeState: stateId, programState: keepProgram ? 2 : 0 };
 
-		this.log(`set state to ${stateId} (${state}), data: {activeState: ${stateId}}`);
+    this.log(`updateState() -> set state to ${stateId} (${state}, temp: ${this.temperatureStatesMap[stateId]}), data: {activeState: ${stateId}}`);
 
-		try {
-			await this.apiCallPut({ uri: `${this.getData().agreementId}/thermostat` }, data);
-		} catch (err) {
-			this.error(`failed to set temperature state to ${state} (${stateId})`, err.stack);
-			throw err;
-		}
+    try {
+      await this.oAuth2Client.updateState({ id: this.id, data });
+      if (stateId >= 0) { // Do not try to update target temperature for unknown state
+        await this.setCapabilityValue('target_temperature', Math.round((this.temperatureStatesMap[stateId] / 100) * 10) / 10);
+      }
+    } catch (err) {
+      this.error(`updateState() -> error, failed to set temperature state to ${state} (${stateId})`, err.stack);
+      throw new Error(Homey.__('capability.error_set_temperature_state', { error: err.message || err.toString() }));
+    }
 
-		this.log(`success setting temperature state to ${state} (${stateId})`);
-		return state;
-	}
+    this.log(`updateState() -> success setting temperature state to ${state} (${stateId})`);
+    return state;
+  }
 
-	/**
-	 * PUTs to the Toon API to set a new target temperature
-	 * TODO doesn't work flawlessly every time (maybe due to multiple webhooks coming in simultaneously)
-	 * @param temperature temperature attribute of type integer.
-	 */
-	async setTargetTemperature(temperature) {
-		const data = { ...this.thermostatInfo, currentSetpoint: temperature * 100, programState: 2, activeState: -1 };
+  /**
+   * PUTs to the Toon API to set a new target temperature
+   * @param temperature temperature attribute of type integer.
+   */
+  async setTargetTemperature(temperature) {
+    const data = { ...this.thermostatInfo, currentSetpoint: temperature * 100, programState: 2, activeState: -1 };
 
-		this.log(`set target temperature to ${temperature}`);
+    this.log(`setTargetTemperature() -> ${temperature}`);
 
-		if (!temperature) {
-			this.error('no temperature provided');
-			return Promise.reject(new Error('missing_temperature_argument'));
-		}
+    if (!temperature) {
+      this.error('setTargetTemperature() -> error, invalid temperature');
+      throw new Error(Homey.__('capability.error_set_target_temperature', { error: err.message || err.toString() }))
+    }
 
-		this.setCapabilityValue('target_temperature', temperature);
+    this.setCapabilityValue('target_temperature', temperature).catch(this.error);
 
-		return this.apiCallPut({ uri: `${this.getData().agreementId}/thermostat` }, data)
-			.then(() => {
-				this.log(`success setting temperature to ${temperature}`);
-				return temperature;
-			}).catch(err => {
-				this.error(`failed to set temperature to ${temperature}`, err.stack);
-				throw err;
-			});
-	}
+    return this.oAuth2Client.updateState({ id: this.id, data })
+      .then(() => {
+        this.log(`setTargetTemperature() -> success setting temperature to ${temperature}`);
+        this.setCapabilityValue('temperature_state', 'none').catch(this.error);
+        return temperature;
+      }).catch(err => {
+        this.error(`setTargetTemperature() -> error, failed to set temperature to ${temperature}`, err.stack);
+        throw new Error(Homey.__('capability.error_set_target_temperature', { error: err.message || err.toString() }));
+      });
+  }
 
-	/**
-	 * Enable the temperature program.
-	 * @returns {*}
-	 */
-	enableProgram() {
-		this.log('enable program');
-		const data = { ...this.thermostatInfo, programState: 1 };
-		return this.apiCallPut({ uri: `${this.getData().agreementId}/thermostat` }, data)
-	}
+  /**
+   * Enable the temperature program.
+   * @returns {*}
+   */
+  enableProgram() {
+    this.log('enableProgram()');
+    const data = { ...this.thermostatInfo, programState: 1 };
+    return this.oAuth2Client.updateState({ id: this.id, data })
+      .then(...args => {
+        this.log(`enableProgram() -> success`);
+        return args;
+      }).catch(err => {
+        this.error(`enableProgram() -> error`, err.stack);
+        throw new Error(Homey.__('capability.error_enable_program', { error: err.message || err.toString() }));
+      });
+  }
 
-	/**
-	 * Disable the temperature program.
-	 * @returns {*}
-	 */
-	disableProgram() {
-		this.log('disable program');
-		const data = { ...this.thermostatInfo, programState: 0 };
-		return this.apiCallPut({ uri: `${this.getData().agreementId}/thermostat` }, data)
-	}
+  /**
+   * Disable the temperature program.
+   * @returns {*}
+   */
+  disableProgram() {
+    this.log('disableProgram()');
+    const data = { ...this.thermostatInfo, programState: 0 };
+    return this.oAuth2Client.updateState({ id: this.id, data })
+      .then(...args => {
+        this.log(`disableProgram() -> success`);
+        return args;
+      }).catch(err => {
+        this.error(`disableProgram() -> error`, err.stack);
+        throw new Error(Homey.__('capability.error_disable_program', { error: err.message || err.toString() }));
+      });
+  }
 
-	/**
-	 * Method that handles processing an incoming status update, whether it is from a GET /status request or a webhook
-	 * update.
-	 * @param data
-	 * @private
-	 */
-	_processStatusUpdate(data) {
-		this.log('_processStatusUpdate', new Date().getTime());
+  /**
+   * Method that handles processing an incoming status update, whether it is from a GET /status request or a webhook
+   * update.
+   * @param data
+   * @private
+   */
+  processStatusUpdate(data) {
+    this.log('processStatusUpdate', new Date().getTime());
 
-		// Data needs to be unwrapped
-		if (data && data.hasOwnProperty('body') && data.body.hasOwnProperty('updateDataSet')) {
+    // Data needs to be unwrapped
+    if (data && data.hasOwnProperty('body') && data.body.hasOwnProperty('updateDataSet')) {
+      this.log(data.body);
 
-			this.log(data.body);
-			this.log(data.body.updateDataSet);
+      // Prevent parsing data from other displays
+      if (data.body.hasOwnProperty('commonName') && data.body.commonName !== this.getData().id) return;
 
-			// Prevent parsing data from other displays
-			if (data.body.hasOwnProperty('commonName') && data.body.commonName !== this.getData().id) return;
+      // Setup register webhook subscription timeout
+      if (typeof data.body.timeToLiveSeconds === 'number') {
+        if (this._webhookRegistrationTimeout) clearTimeout(this._webhookRegistrationTimeout);
+        this._webhookRegistrationTimeout = setTimeout(this.registerWebhookSubscription.bind(this), data.body.timeToLiveSeconds * 1000);
+      }
 
-			// Setup registration timeout
-			if (this._webhookRegistrationTimeout) clearTimeout();
-			this._webhookRegistrationTimeout = setTimeout(this.registerWebhookSubscription.bind(this), data.body.timeToLiveSeconds * 1000);
+      const dataRootObject = data.body.updateDataSet;
 
-			const dataRootObject = data.body.updateDataSet;
+      // Keep updated list of thermostat state temperatures
+      if (dataRootObject.hasOwnProperty('thermostatStates') &&
+        Array.isArray(dataRootObject.thermostatStates.state)) {
+        for (const { id, tempValue } of dataRootObject.thermostatStates.state) {
+          this.temperatureStatesMap[id] = tempValue
+        }
+      }
 
-			// Check for power usage information
-			if (dataRootObject.hasOwnProperty('powerUsage')) {
-				this._processPowerUsageData(dataRootObject.powerUsage);
-			}
+      // Check for power usage information
+      if (dataRootObject.hasOwnProperty('powerUsage')) {
+        this._processPowerUsageData(dataRootObject.powerUsage);
+      }
 
-			// Check for gas usage information
-			if (dataRootObject.hasOwnProperty('gasUsage')) {
-				this._processGasUsageData(dataRootObject.gasUsage);
-			}
+      // Check for gas usage information
+      if (dataRootObject.hasOwnProperty('gasUsage')) {
+        this._processGasUsageData(dataRootObject.gasUsage);
+      }
 
-			// Check for thermostat information
-			if (dataRootObject.hasOwnProperty('thermostatInfo')) {
-				this._processThermostatInfoData(dataRootObject.thermostatInfo);
-			}
-		}
-	}
+      // Check for thermostat information
+      if (dataRootObject.hasOwnProperty('thermostatInfo')) {
+        this._processThermostatInfoData(dataRootObject.thermostatInfo);
+      }
+    }
+  }
 
-	/**
-	 * Method that handles the parsing of updated power usage data.
-	 * @param data
-	 * @private
-	 */
-	_processPowerUsageData(data = {}) {
-		this.log('process received powerUsage data');
-		this.log(data);
+  /**
+   * Method that handles the parsing of updated power usage data.
+   * @param data
+   * @private
+   */
+  _processPowerUsageData(data = {}) {
+    // Store data object
+    this.powerUsage = data;
 
-		// Store data object
-		this.powerUsage = data;
+    // Store new values
+    if (data.hasOwnProperty('value')) {
+      this.log('getThermostatData() -> powerUsage -> measure_power -> value:', data.value);
+      this.setCapabilityValue('measure_power', data.value).catch(this.error);
+    }
 
-		// Store new values
-		if (data.hasOwnProperty('value')) {
-			this.log('getThermostatData() -> powerUsage -> measure_power -> value:', data.value);
-			this.setCapabilityValue('measure_power', data.value);
-		}
+    // Store new values
+    if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
+      const usage = (data.dayUsage + data.dayLowUsage) / 1000; // convert from Wh to KWh
+      this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
+      this.setCapabilityValue('meter_power', usage).catch(this.error);
+    }
+  }
 
-		// Store new values
-		if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
-			const usage = (data.dayUsage + data.dayLowUsage) / 1000; // convert from Wh to KWh
-			this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
-			this.setCapabilityValue('meter_power', usage);
-		}
-	}
+  /**
+   * Method that handles the parsing of updated gas usage data.
+   * TODO: validate this method once GasUsage becomes available.
+   * @param data
+   * @private
+   */
+  _processGasUsageData(data = {}) {
+    // Store data object
+    this.gasUsage = data;
 
-	/**
-	 * Method that handles the parsing of updated gas usage data.
-	 * TODO: validate this method once GasUsage becomes available.
-	 * @param data
-	 * @private
-	 */
-	_processGasUsageData(data = {}) {
-		this.log('process received gasUsage data');
-		this.log(data);
+    // Store new values
+    if (data.hasOwnProperty('dayUsage')) {
+      const meterGas = data.dayUsage / 1000; // Wh -> kWh
+      this.log('getThermostatData() -> gasUsage -> meter_gas', meterGas);
+      this.setCapabilityValue('meter_gas', meterGas).catch(this.error);
+    }
+  }
 
-		// Store data object
-		this.gasUsage = data;
+  /**
+   * Method that handles the parsing of thermostat info data.
+   * @param data
+   * @private
+   */
+  _processThermostatInfoData(data = {}) {
+    // Store data object
+    this.thermostatInfo = data;
 
-		// Store new values
-		if (data.hasOwnProperty('dayUsage')) {
-			const meterGas = data.dayUsage / 1000; // Wh -> kWh
-			this.log('getThermostatData() -> gasUsage -> meter_gas', meterGas);
-			this.setCapabilityValue('meter_gas', meterGas);
-		}
-	}
+    // Store new values
+    if (data.hasOwnProperty('currentDisplayTemp')) {
+      this.setCapabilityValue('measure_temperature', Math.round((data.currentDisplayTemp / 100) * 10) / 10).catch(this.error);
+    }
+    if (data.hasOwnProperty('currentSetpoint')) {
+      this.setCapabilityValue('target_temperature', Math.round((data.currentSetpoint / 100) * 10) / 10).catch(this.error);
+    }
+    if (data.hasOwnProperty('activeState')) {
+      this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState)).catch(this.error);
+    }
+  }
 
-	/**
-	 * Method that handles the parsing of thermostat info data.
-	 * @param data
-	 * @private
-	 */
-	_processThermostatInfoData(data = {}) {
-		this.log('process received thermostatInfo data');
-		this.log(data);
+  /**
+   * This method will be called when the device has been deleted, it makes
+   * sure the client is properly destroyed and left over settings are removed.
+   */
+  async onOAuth2Deleted() {
+    this.log('onOAuth2Deleted()');
+    if (this.oAuth2Client) await this.oAuth2Client.unregisterWebhookSubscription({ id: this.id });
+    clearTimeout(this._registerWebhookSubscriptionTimeout);
+    clearTimeout(this._webhookRegistrationTimeout);
+  }
 
-		// Store data object
-		this.thermostatInfo = data;
+  /**
+   * Utility method that will return the first key of an object that matches a provided value.
+   * @param obj
+   * @param val
+   * @returns {string | undefined}
+   */
+  static getKey(obj, val) {
+    return Object.keys(obj).find(key => obj[key] === val);
+  }
 
-		// Store new values
-		if (data.hasOwnProperty('currentDisplayTemp')) {
-			this.setCapabilityValue('measure_temperature', Math.round((data.currentDisplayTemp / 100) * 10) / 10);
-		}
-		if (data.hasOwnProperty('currentSetpoint')) {
-			this.setCapabilityValue('target_temperature', Math.round((data.currentSetpoint / 100) * 10) / 10);
-		}
-		if (data.hasOwnProperty('activeState')) {
-			this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState));
-		}
-	}
+  /**
+   * Returns a function, that, as long as it continues to be invoked, will not
+   * be triggered. The function will be called after it stops being called for
+   * N milliseconds.
+   * @param fn
+   * @param wait
+   * @returns {Function}
+   */
+  static debounce(fn, wait = 0) {
+    let timer = null;
+    let resolves = [];
 
-	/**
-	 * This method will be called when the device has been deleted, it makes
-	 * sure the client is properly destroyed and left over settings are removed.
-	 */
-	onDeleted() {
-		this.log('onDeleted()');
-		super.onDeleted();
-	}
+    return function (...args) {
+      // Run the function after a certain amount of time
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Get the result of the inner function, then apply it to the resolve function of
+        // each promise that has been created since the last time the inner function was run
+        let result = fn(...args);
+        resolves.forEach(r => r(result));
+        resolves = [];
+      }, wait);
 
-	/**
-	 * Method that overrides device.setAvailable to reset a unavailable counter.
-	 * @returns {*|Promise}
-	 */
-	setAvailable() {
-		this._unavailableCounter = 0;
-		if (this.getAvailable() === false) {
-			this.log('mark as available');
-			return super.setAvailable();
-		}
-		return Promise.resolve();
-	}
+      return new Promise(r => resolves.push(r));
+    };
+  }
 
-	/**
-	 * Method that overrides device.setUnavailable so that the super only gets called when setUnavailable is called
-	 * more than three times.
-	 * @param args
-	 * @returns {*}
-	 */
-	setUnavailable(message, callback, force) {
-		if (this._unavailableCounter > 3 || force) {
-			this.log('mark as unavailable');
-			return super.setUnavailable(message, callback);
-		}
-		this._unavailableCounter = this._unavailableCounter + 1;
-		return Promise.resolve();
-	}
+  /**
+   * Migrates OAuth access token from 2.0.x to 2.1.x
+   * TODO: can be removed after 2.1.x has been pushed to stable.
+   * @returns {{sessionId: *, configId: *, token: *}}
+   */
+  onOAuth2Migrate() {
+    this.log('onOAuth2Migrate()');
+    const oauth2AccountStore = this.getStoreValue('oauth2Account');
 
-	/**
-	 * Response handler middleware, which will be called on each successful API request.
-	 * @param res
-	 * @returns {*}
-	 */
-	webAPIResponseHandler(res) {
-		// Mark device as available after being unavailable
-		if (this.getAvailable() === false) this.setAvailable();
-		return res;
-	}
+    if (!oauth2AccountStore)
+      throw new Error('Missing OAuth2 Account');
+    if (!oauth2AccountStore.accessToken)
+      throw new Error('Missing Access Token');
+    if (!oauth2AccountStore.refreshToken)
+      throw new Error('Missing Refresh Token');
 
-	/**
-	 * Response handler middleware, which will be called on each failed API request.
-	 * @param err
-	 * @returns {*}
-	 */
-	webAPIErrorHandler(err) {
-		this.error('webAPIErrorHandler()', err);
+    const token = new OAuth2Token({
+      access_token: oauth2AccountStore.accessToken,
+      refresh_token: oauth2AccountStore.refreshToken,
+    });
 
-		// Detect error that is returned when Toon is offline
-		if (err.name === 'WebAPIServerError' && err.statusCode === 500) {
+    const sessionId = OAuth2Util.getRandomId();
+    const configId = this.getDriver().getOAuth2ConfigId();
+    this.log('onOAuth2Migrate() -> migration succeeded', {
+      sessionId,
+      configId,
+      token,
+    });
 
-			if (err.errorResponse.type === 'communicationError' || err.errorResponse.errorCode === 'communicationError' ||
-				err.errorResponse.description === 'Error communicating with Toon') {
-				this.log('webAPIErrorHandler() -> communication error');
-				this.setUnavailable(Homey.__('offline'));
+    return {
+      sessionId,
+      configId,
+      token,
+    }
+  }
 
-				throw err;
-			}
-		}
-
-		// Let OAuth2/WebAPIDevice handle the error
-		super.webAPIErrorHandler(err);
-	}
-
-	/**
-	 * Utility method that will return the first key of an object that matches a provided value.
-	 * @param obj
-	 * @param val
-	 * @returns {string | undefined}
-	 */
-	static getKey(obj, val) {
-		return Object.keys(obj).find(key => obj[key] === val);
-	}
+  /**
+   * When migration from 2.0.x to 2.1.x succeeded unset legacy store value.
+   * @returns {Promise<void>}
+   */
+  async onOAuth2MigrateSuccess() {
+    await this.unsetStoreValue('oauth2Account');
+  }
 }
-
-// Returns a function, that, as long as it continues to be invoked, will not
-// be triggered. The function will be called after it stops being called for
-// N milliseconds. If `immediate` is passed, trigger the function on the
-// leading edge, instead of the trailing.
-function debounce(func, wait, immediate) {
-	var timeout;
-	return function () {
-		var context = this, args = arguments;
-		var later = function () {
-			timeout = null;
-			if (!immediate) func.apply(context, args);
-		};
-		var callNow = immediate && !timeout;
-		clearTimeout(timeout);
-		timeout = setTimeout(later, wait);
-		if (callNow) func.apply(context, args);
-	};
-};
 
 module.exports = ToonDevice;

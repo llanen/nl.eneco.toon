@@ -1,7 +1,7 @@
 {
   "id": "nl.eneco.toon",
-  "version": "2.1.7",
-  "compatibility": ">=1.5.0",
+  "version": "2.1.12",
+  "compatibility": ">=2.0.0",
   "sdk": 2,
   "name": {
     "en": "Toon®",
@@ -94,38 +94,9 @@
           "max": 30
         }
       },
-      "mobile": {
-        "components": [
-          {
-            "id": "icon",
-            "capabilities": []
-          },
-          {
-            "id": "sensor",
-            "capabilities": [
-              "measure_temperature",
-              "measure_power",
-              "meter_power",
-              "meter_gas"
-            ]
-          },
-          {
-            "capabilities": [
-              "temperature_state"
-            ],
-            "id": "picker"
-          },
-          {
-            "id": "thermostat",
-            "capabilities": [
-              "target_temperature"
-            ]
-          }
-        ]
-      },
       "pair": [
         {
-          "id": "authentication",
+          "id": "login_oauth2",
           "template": "login_oauth2",
           "options": {
             "hint": {
@@ -138,14 +109,14 @@
           }
         },
         {
-          "id": "list_toon_devices",
+          "id": "list_devices",
           "template": "list_devices",
           "navigation": {
-            "next": "add_toon"
+            "next": "add_devices"
           }
         },
         {
-          "id": "add_toon",
+          "id": "add_devices",
           "template": "add_devices"
         }
       ]
