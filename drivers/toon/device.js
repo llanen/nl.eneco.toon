@@ -199,34 +199,34 @@ class ToonDevice extends OAuth2Device {
    * Enable the temperature program.
    * @returns {*}
    */
-  enableProgram() {
+  async enableProgram() {
     this.log('enableProgram()');
     const data = { ...this.thermostatInfo, programState: 1 };
-    return this.oAuth2Client.updateState({ id: this.id, data })
-      .then(...args => {
-        this.log(`enableProgram() -> success`);
-        return args;
-      }).catch(err => {
-        this.error(`enableProgram() -> error`, err.stack);
-        throw new Error(Homey.__('capability.error_enable_program', { error: err.message || err.toString() }));
-      });
+
+    try {
+      await this.oAuth2Client.updateState({ id: this.id, data });
+      this.log(`enableProgram() -> success`);
+    } catch (err) {
+      this.error(`enableProgram() -> error`, err.stack);
+      throw new Error(Homey.__('capability.error_enable_program', { error: err.message || err.toString() }));
+    }
   }
 
   /**
    * Disable the temperature program.
    * @returns {*}
    */
-  disableProgram() {
+  async disableProgram() {
     this.log('disableProgram()');
     const data = { ...this.thermostatInfo, programState: 0 };
-    return this.oAuth2Client.updateState({ id: this.id, data })
-      .then(...args => {
-        this.log(`disableProgram() -> success`);
-        return args;
-      }).catch(err => {
-        this.error(`disableProgram() -> error`, err.stack);
-        throw new Error(Homey.__('capability.error_disable_program', { error: err.message || err.toString() }));
-      });
+
+    try {
+      await this.oAuth2Client.updateState({ id: this.id, data });
+      this.log(`disableProgram() -> success`);
+    } catch (err) {
+      this.error(`disableProgram() -> error`, err.stack);
+      throw new Error(Homey.__('capability.error_disable_program', { error: err.message || err.toString() }));
+    }
   }
 
   /**
