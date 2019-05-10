@@ -9,7 +9,7 @@ NOTE: Currently the Toon® API poses some limitations, gas measurement events ar
 DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
 ###Changelog
-- 2.1.13: Fix crash when enabling/disabling program
+- 2.1.14: Fix crash when enabling/disabling program
 - 2.1.12: Update OAuth2 implementation (adds login page in app settings)
 - 2.0.6: Update environment variables
 - 2.0.5: Fix power meter readings
