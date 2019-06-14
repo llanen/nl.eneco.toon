@@ -125,56 +125,6 @@
   "flow": {
     "triggers": [
       {
-        "id": "meter_gas_changed",
-        "title": {
-          "en": "The gas meter changed",
-          "nl": "De gasmeter is veranderd"
-        },
-        "tokens": [
-          {
-            "name": "meter_gas",
-            "type": "number",
-            "title": {
-              "en": "m³",
-              "nl": "m³"
-            },
-            "example": 25
-          }
-        ],
-        "args": [
-          {
-            "name": "device",
-            "type": "device",
-            "filter": "driver_id=toon"
-          }
-        ]
-      },
-      {
-        "id": "meter_power_changed",
-        "title": {
-          "en": "The power meter changed",
-          "nl": "De energiemeter is veranderd"
-        },
-        "tokens": [
-          {
-            "name": "meter_power",
-            "type": "number",
-            "title": {
-              "en": "Wh",
-              "nl": "Wh"
-            },
-            "example": 75
-          }
-        ],
-        "args": [
-          {
-            "name": "device",
-            "type": "device",
-            "filter": "driver_id=toon"
-          }
-        ]
-      },
-      {
         "id": "temperature_state_changed",
         "title": {
           "en": "Temperature state changed",
