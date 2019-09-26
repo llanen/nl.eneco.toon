@@ -113,7 +113,7 @@ class ToonDevice extends OAuth2Device {
    */
   registerWebhook() {
     return new Homey.CloudWebhook(Homey.env.WEBHOOK_ID, Homey.env.WEBHOOK_SECRET, {
-      displayCommonName: this.getData().id,
+      $keys: [this.getData().id],
     })
       .on('message', this.processStatusUpdate.bind(this))
       .register()
