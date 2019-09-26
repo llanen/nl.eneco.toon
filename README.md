@@ -9,6 +9,7 @@ NOTE: Currently the Toon® API poses some limitations, gas measurement events ar
 DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
 ###Changelog
+- 2.1.17: Moved to webhook events implementation
 - 2.1.15: Fixes subscription logic
 - 2.1.14: Fix crash when enabling/disabling program
 - 2.1.12: Update OAuth2 implementation (adds login page in app settings)
