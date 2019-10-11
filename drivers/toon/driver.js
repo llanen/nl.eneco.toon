@@ -45,6 +45,7 @@ class ToonDriver extends OAuth2Driver {
 			agreements = await oAuth2Client.getAgreements();
 		} catch (err) {
 			this.error('onPairListDevices() -> error, failed to get agreements, reason:', err.message);
+			throw new Error(Homey.__('pairing.agreement_error'));
 		}
 		this.log(`onPairListDevices() -> got ${agreements.length} agreements`);
 		if (Array.isArray(agreements)) {

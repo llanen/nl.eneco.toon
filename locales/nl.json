@@ -27,5 +27,8 @@
     "error_logout_failed": "Kon niet uitloggen (error: __error___)",
     "error_get_authenticated_state": "Kon login status niet ophalen (error: __error___)",
     "error_webhook_registration": "De Toon API geeft een foutmelding, mogelijk werkt het apparaat niet zoals verwacht."
+  },
+  "pairing": {
+    "agreement_error": "Er ging iets fout bij het inloggen, probeer het later opnieuw."
   }
 }
