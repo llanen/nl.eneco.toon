@@ -1,6 +1,6 @@
 {
   "id": "nl.eneco.toon",
-  "version": "2.1.19",
+  "version": "2.1.20",
   "compatibility": ">=2.0.0",
   "sdk": 2,
   "name": {
@@ -93,6 +93,9 @@
           "min": 6,
           "max": 30
         }
+      },
+      "energy": {
+        "cumulative": true
       },
       "pair": [
         {
