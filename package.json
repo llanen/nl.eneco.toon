@@ -1,7 +1,7 @@
 {
   "name": "nl.eneco.toon",
   "version": "1.0.0",
-  "description": "Let Homey control your Toon®!",
+  "description": "Let Homey control your Toon!",
   "main": "app.js",
   "dependencies": {
     "homey-log": "1.0.6",
