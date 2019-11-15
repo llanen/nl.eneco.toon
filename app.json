@@ -1,7 +1,8 @@
 {
   "id": "nl.eneco.toon",
-  "version": "2.1.22",
+  "version": "2.1.23",
   "compatibility": ">=3.0.0",
+  "brandColor": "#e74759",
   "sdk": 2,
   "name": {
     "en": "Toon",
