@@ -1,14 +1,18 @@
-###Toon by Eneco app for Homey
+### Toon by Eneco app for Homey
 
-Let Homey control your Toon®!
+Let Homey control your Toon!
 
 Set the target temperature, read the room temperature and display your electricity usage in Insights!
 
-NOTE: Currently the Toon® API poses some limitations, gas measurement events are not pushed to Homey and only one Toon can be installed on a Homey at a time. We are waiting for these features to be implemented by Toon® API.
+NOTE: Currently the Toon API poses some limitations, gas measurement events are not pushed to Homey and only one Toon can be installed on a Homey at a time. We are waiting for these features to be implemented by Toon API.
 
-DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
+DISCLAIMER: This application uses the Toon API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
-###Changelog
+### Changelog
+- 2.1.21: Fix an login error. Logging in to Toon should be available again.
+- 2.1.20: Adds support for Energy
+- 2.1.19: Improve error message when login failed
+- 2.1.18: Moved to webhook events implementation
 - 2.1.15: Fixes subscription logic
 - 2.1.14: Fix crash when enabling/disabling program
 - 2.1.12: Update OAuth2 implementation (adds login page in app settings)

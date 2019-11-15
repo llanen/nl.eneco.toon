@@ -27,5 +27,8 @@
     "error_logout_failed": "Could not logout (error: __error___)",
     "error_get_authenticated_state": "Could not get current login state (error: __error___)",
     "error_webhook_registration": "The Toon API returned an error, your device might not behave as expected."
+  },
+  "pairing": {
+    "agreement_error": "Something went wrong during authentication, try again later."
   }
 }
