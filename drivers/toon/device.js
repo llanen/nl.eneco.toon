@@ -20,7 +20,7 @@ class ToonDevice extends OAuth2Device {
 
     // Indicate Homey is connecting to Toon
     await this.setUnavailable(Homey.__('authentication.connecting'));
-
+    
     // Store raw data
     this.gasUsage = {};
     this.powerUsage = {};
