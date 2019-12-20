@@ -4,5 +4,11 @@
   },
   "2.1.23": {
     "en": "Added brand color"
+  },
+  "2.1.24": {
+    "en": "Updated app and device icons, improved app description, implemented new authentication process."
+  },
+  "2.1.25": {
+    "en": "Fixed a bug that could prevent Homey from receiving data from Toon, enhanced stability, improved app description."
   }
 }

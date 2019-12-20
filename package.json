@@ -4,10 +4,13 @@
   "description": "Let Homey control your Toon!",
   "main": "app.js",
   "dependencies": {
+    "async": "^3.1.0",
     "homey-log": "1.0.6",
     "homey-oauth2app": "^1.2.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^6.7.2"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
