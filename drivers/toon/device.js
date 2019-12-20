@@ -3,6 +3,8 @@
 const Homey = require('homey');
 const { OAuth2Device, OAuth2Token, OAuth2Util } = require('homey-oauth2app');
 
+const { exponentialBackOffRetry } = require('../../lib/Util');
+
 const TEMPERATURE_STATES = {
   comfort: 0,
   home: 1,
@@ -20,7 +22,7 @@ class ToonDevice extends OAuth2Device {
 
     // Indicate Homey is connecting to Toon
     await this.setUnavailable(Homey.__('authentication.connecting'));
-    
+
     // Store raw data
     this.gasUsage = {};
     this.powerUsage = {};
@@ -35,8 +37,10 @@ class ToonDevice extends OAuth2Device {
     this.registerWebhook();
 
     // Fetch initial data update and start listening for webhooks
-    await Promise.all([this.getStatusUpdate(), this.registerWebhookSubscription()])
-      .catch(err => this.error('onOAuth2Init() -> error occurred while fetching status update or registering webhook subscription', err.message || err.toString()));
+    await Promise.all([
+      this.getStatusUpdate(),
+      this.registerWebhookSubscription(),
+    ]).catch(err => this.error('onOAuth2Init() -> error occurred while fetching status update or registering webhook subscription', err, err.message || err.toString()));
 
     await this.setAvailable();
 
@@ -120,21 +124,42 @@ class ToonDevice extends OAuth2Device {
   }
 
   /**
-   * Method that will request a subscription for webhook events for the next hour.
-   * @returns {Promise<void>}
+   * Method that will request a subscription for webhook events for the next hour. It will retry maximum 10 times spread
+   * exponentially over time.
+   * @returns {Promise<boolean>}
    */
   async registerWebhookSubscription() {
-    this.log('registerWebhookSubscription()');
+    let i = 0;
+    const retryTimes = 10;
+
+    // Resolve for now, we are already subscribing/retrying
+    if (this._registeringWebhooks) return true;
+
+    // Set registering state to prevent multiple attempts running simultaneously
+    this._registeringWebhooks = true;
 
     try {
-      // Start new subscription
-      await this.oAuth2Client.registerWebhookSubscription({ id: this.id });
-      await this.setWarning(null); // Unset warning
+      // Start exponential back off retry for register webhook subscription, this retries
+      await exponentialBackOffRetry(async () => {
+        i++;
+
+        // Start new subscription
+        this.log('registerWebhookSubscription()', i > 1 ? `retry ${i}/${retryTimes}` : '');
+        await this.oAuth2Client.registerWebhookSubscription({ id: this.id });
+
+        // Reset registering webhooks state
+        this._registeringWebhooks = false;
+        await this.setWarning(null); // Unset warning
+      }, retryTimes);
     } catch (err) {
       this.error('Failed to register webhook subscription, reason', err.message || err.toString());
 
+      // Reset registering webhooks state
+      this._registeringWebhooks = false;
+
       // Set warning on device that data might not be coming in
       await this.setWarning(Homey.__('api.error_webhook_registration'));
+      throw err;
     }
   }
 
@@ -143,6 +168,7 @@ class ToonDevice extends OAuth2Device {
    * @returns {Promise}
    */
   async getStatusUpdate() {
+    this.log('getStatusUpdate()');
     try {
       const data = await this.oAuth2Client.getStatus({ id: this.id });
       this.processStatusUpdate({ body: { updateDataSet: data } });
