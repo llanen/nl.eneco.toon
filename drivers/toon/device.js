@@ -372,6 +372,13 @@ class ToonDevice extends OAuth2Device {
     if (data.hasOwnProperty('activeState')) {
       this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState)).catch(this.error);
     }
+    if (data.hasOwnProperty('currentHumidity')) {
+      if (!this.hasCapability('measure_humidity')) {
+        this.addCapability('measure_humidity').catch(this.error);
+      } else {
+        this.setCapabilityValue('measure_humidity', data.currentHumidity).catch(this.error);
+      }
+    }
   }
 
   /**
