@@ -11,12 +11,6 @@
   "2.1.25": {
     "en": "Fixed a bug that could prevent Homey from receiving data from Toon, enhanced stability, improved app description."
   },
-  "2.2.0": {
-    "en": "Added support for humidity measurements, only available on Toon devices with this feature."
-  },
-  "2.2.1": {
-    "en": "Added support for humidity measurements, only available on Toon devices with this feature."
-  },
   "2.2.2": {
     "en": "Added support for humidity measurements, only available on Toon devices with this feature."
   }
