@@ -19,5 +19,8 @@
   },
   "2.2.2": {
     "en": "Added support for humidity measurements, only available on Toon devices with this feature."
+  },
+  "2.2.3": {
+    "en": "Test"
   }
 }
