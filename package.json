@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "description": "Let Homey control your Toon!",
   "main": "app.js",
+  "scripts": {
+    "lint": "eslint ."
+  },
   "dependencies": {
     "homey-log": "1.0.6",
     "homey-oauth2app": "^1.3.0"
   },
   "devDependencies": {
-    "eslint": "^6.7.2"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "eslint": "^6.7.2",
+    "eslint-config-athom": "^2.0.8"
   },
   "repository": {
     "type": "git",
