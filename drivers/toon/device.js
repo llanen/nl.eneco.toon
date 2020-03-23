@@ -3,7 +3,7 @@
 const Homey = require('homey');
 const { OAuth2Device, OAuth2Token, OAuth2Util } = require('homey-oauth2app');
 
-const { exponentialBackOffRetry } = require('../../lib/Util');
+const { wrapAsyncWithRetry } = require('../../lib/Util');
 
 const TEMPERATURE_STATES = {
   comfort: 0,
@@ -140,7 +140,7 @@ class ToonDevice extends OAuth2Device {
 
     try {
       // Start exponential back off retry for register webhook subscription, this retries
-      await exponentialBackOffRetry(async () => {
+      await wrapAsyncWithRetry(async () => {
         i++;
 
         // Start new subscription
@@ -150,7 +150,7 @@ class ToonDevice extends OAuth2Device {
         // Reset registering webhooks state
         this._registeringWebhooks = false;
         await this.setWarning(null); // Unset warning
-      }, retryTimes);
+      }, retryTimes, function (retryCount) { return 6000 * Math.pow(2, retryCount) } );
     } catch (err) {
       this.error('Failed to register webhook subscription, reason', err.message || err.toString());
 
