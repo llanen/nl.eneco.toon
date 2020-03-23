@@ -10,7 +10,7 @@ const TEMPERATURE_STATES = {
   home: 1,
   sleep: 2,
   away: 3,
-  none: -1
+  none: -1,
 };
 
 // TODO: remove flow cards (>=2.0.0 compatible)
@@ -48,14 +48,14 @@ class ToonDevice extends OAuth2Device {
   }
 
   /**
-   * Method that takes a sessionId and configId, finds the OAuth2Client based on that, then binds the new OAuth2Client
-   * instance to this HomeyDevice instance. Basically it allows switching OAuth2Clients on a HomeyDevice.
+   * Method that takes a sessionId and configId, finds the OAuth2Client based on that, then
+   * binds the new OAuth2Client instance to this HomeyDevice instance. Basically it allows
+   * switching OAuth2Clients on a HomeyDevice.
    * @param {string} sessionId
    * @param {string} configId
    * @returns {Promise<void>}
    */
   async resetOAuth2Client({ sessionId, configId }) {
-
     // Store updated client config
     await this.setStoreValue('OAuth2SessionId', sessionId);
     await this.setStoreValue('OAuth2ConfigId', configId);
@@ -74,8 +74,8 @@ class ToonDevice extends OAuth2Device {
 
     // Check if device agreementId is present in OAuth2 account
     const agreements = await this.oAuth2Client.getAgreements();
-    if (Array.isArray(agreements) &&
-      agreements.find(agreement => agreement.agreementId === this.id)) {
+    if (Array.isArray(agreements)
+      && agreements.find(agreement => agreement.agreementId === this.id)) {
       return this.setAvailable();
     }
     return this.setUnavailable(Homey.__('authentication.device_not_found'));
@@ -112,7 +112,8 @@ class ToonDevice extends OAuth2Device {
   }
 
   /**
-   * Method that will register a Homey webhook which listens for incoming events related to this specific device.
+   * Method that will register a Homey webhook which listens for incoming events related to this
+   * specific device.
    * @returns {Promise|Api|FlowCard|Promise<void>|Promise<ServiceWorkerRegistration>}
    */
   registerWebhook() {
@@ -120,12 +121,12 @@ class ToonDevice extends OAuth2Device {
       $keys: [this.getData().id],
     })
       .on('message', this.processStatusUpdate.bind(this))
-      .register()
+      .register();
   }
 
   /**
-   * Method that will request a subscription for webhook events for the next hour. It will retry maximum 10 times spread
-   * exponentially over time.
+   * Method that will request a subscription for webhook events for the next hour. It will retry
+   * maximum 10 times spread exponentially over time.
    * @returns {Promise<boolean>}
    */
   async registerWebhookSubscription() {
@@ -133,7 +134,7 @@ class ToonDevice extends OAuth2Device {
     const retryTimes = 10;
 
     // Resolve for now, we are already subscribing/retrying
-    if (this._registeringWebhooks) return true;
+    if (this._registeringWebhooks) return;
 
     // Set registering state to prevent multiple attempts running simultaneously
     this._registeringWebhooks = true;
@@ -150,7 +151,9 @@ class ToonDevice extends OAuth2Device {
         // Reset registering webhooks state
         this._registeringWebhooks = false;
         await this.setWarning(null); // Unset warning
-      }, retryTimes, function (retryCount) { return 6000 * Math.pow(2, retryCount) } );
+      }, retryTimes, retryCount => {
+        return 6000 * (2 ** retryCount);
+      });
     } catch (err) {
       this.error('Failed to register webhook subscription, reason', err.message || err.toString());
 
@@ -184,7 +187,9 @@ class ToonDevice extends OAuth2Device {
    */
   async updateState(state, keepProgram) {
     const stateId = TEMPERATURE_STATES[state];
-    const data = { ...this.thermostatInfo, activeState: stateId, programState: keepProgram ? 2 : 0 };
+    const data = {
+      ...this.thermostatInfo, activeState: stateId, programState: keepProgram ? 2 : 0,
+    };
 
     this.log(`updateState() -> set state to ${stateId} (${state}, temp: ${this.temperatureStatesMap[stateId]}), data: {activeState: ${stateId}}`);
 
@@ -207,13 +212,15 @@ class ToonDevice extends OAuth2Device {
    * @param temperature temperature attribute of type integer.
    */
   async setTargetTemperature(temperature) {
-    const data = { ...this.thermostatInfo, currentSetpoint: temperature * 100, programState: 2, activeState: -1 };
+    const data = {
+      ...this.thermostatInfo, currentSetpoint: temperature * 100, programState: 2, activeState: -1,
+    };
 
     this.log(`setTargetTemperature() -> ${temperature}`);
 
-    if (!temperature) {
+    if (typeof temperature !== 'number') {
       this.error('setTargetTemperature() -> error, invalid temperature');
-      throw new Error(Homey.__('capability.error_set_target_temperature', { error: err.message || err.toString() }))
+      throw new Error(Homey.__('capability.error_set_target_temperature', { error: 'invalid_temperature' }));
     }
 
     this.setCapabilityValue('target_temperature', temperature).catch(this.error);
@@ -239,9 +246,9 @@ class ToonDevice extends OAuth2Device {
 
     try {
       await this.oAuth2Client.updateState({ id: this.id, data });
-      this.log(`enableProgram() -> success`);
+      this.log('enableProgram() -> success');
     } catch (err) {
-      this.error(`enableProgram() -> error`, err.stack);
+      this.error('enableProgram() -> error', err.stack);
       throw new Error(Homey.__('capability.error_enable_program', { error: err.message || err.toString() }));
     }
   }
@@ -256,16 +263,16 @@ class ToonDevice extends OAuth2Device {
 
     try {
       await this.oAuth2Client.updateState({ id: this.id, data });
-      this.log(`disableProgram() -> success`);
+      this.log('disableProgram() -> success');
     } catch (err) {
-      this.error(`disableProgram() -> error`, err.stack);
+      this.error('disableProgram() -> error', err.stack);
       throw new Error(Homey.__('capability.error_disable_program', { error: err.message || err.toString() }));
     }
   }
 
   /**
-   * Method that handles processing an incoming status update, whether it is from a GET /status request or a webhook
-   * update.
+   * Method that handles processing an incoming status update, whether it is from a GET /status
+   * request or a webhook update.
    * @param data
    * @private
    */
@@ -273,40 +280,44 @@ class ToonDevice extends OAuth2Device {
     this.log('processStatusUpdate', new Date().getTime());
 
     // Data needs to be unwrapped
-    if (data && data.hasOwnProperty('body') && data.body.hasOwnProperty('updateDataSet')) {
+    if (data && data.body && data.body.updateDataSet) {
       this.log(data.body);
 
       // Prevent parsing data from other displays
-      if (data.body.hasOwnProperty('commonName') && data.body.commonName !== this.getData().id) return;
+      if (typeof data.body.commonName === 'string'
+        && data.body.commonName !== this.getData().id) return;
 
       // Setup register webhook subscription timeout
       if (typeof data.body.timeToLiveSeconds === 'number') {
         if (this._webhookRegistrationTimeout) clearTimeout(this._webhookRegistrationTimeout);
-        this._webhookRegistrationTimeout = setTimeout(this.registerWebhookSubscription.bind(this), data.body.timeToLiveSeconds * 1000);
+        this._webhookRegistrationTimeout = setTimeout(
+          this.registerWebhookSubscription.bind(this),
+          data.body.timeToLiveSeconds * 1000,
+        );
       }
 
       const dataRootObject = data.body.updateDataSet;
 
       // Keep updated list of thermostat state temperatures
-      if (dataRootObject.hasOwnProperty('thermostatStates') &&
-        Array.isArray(dataRootObject.thermostatStates.state)) {
+      if (dataRootObject.thermostatStates
+        && Array.isArray(dataRootObject.thermostatStates.state)) {
         for (const { id, tempValue } of dataRootObject.thermostatStates.state) {
-          this.temperatureStatesMap[id] = tempValue
+          this.temperatureStatesMap[id] = tempValue;
         }
       }
 
       // Check for power usage information
-      if (dataRootObject.hasOwnProperty('powerUsage')) {
+      if (dataRootObject.powerUsage) {
         this._processPowerUsageData(dataRootObject.powerUsage);
       }
 
       // Check for gas usage information
-      if (dataRootObject.hasOwnProperty('gasUsage')) {
+      if (dataRootObject.gasUsage) {
         this._processGasUsageData(dataRootObject.gasUsage);
       }
 
       // Check for thermostat information
-      if (dataRootObject.hasOwnProperty('thermostatInfo')) {
+      if (dataRootObject.thermostatInfo) {
         this._processThermostatInfoData(dataRootObject.thermostatInfo);
       }
     }
@@ -322,15 +333,15 @@ class ToonDevice extends OAuth2Device {
     this.powerUsage = data;
 
     // Store new values
-    if (data.hasOwnProperty('value')) {
+    if (typeof data.value === 'number') {
       this.log('getThermostatData() -> powerUsage -> measure_power -> value:', data.value);
       this.setCapabilityValue('measure_power', data.value).catch(this.error);
     }
 
     // Store new values
-    if (data.hasOwnProperty('dayUsage') && data.hasOwnProperty('dayLowUsage')) {
+    if (typeof data.dayUsage === 'number' && typeof data.dayLowUsage === 'number') {
       const usage = (data.dayUsage + data.dayLowUsage) / 1000; // convert from Wh to KWh
-      this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', data.dayUsage + ', dayLowUsage:' + data.dayLowUsage + ', usage:' + usage);
+      this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', `${data.dayUsage}, dayLowUsage:${data.dayLowUsage}, usage:${usage}`);
       this.setCapabilityValue('meter_power', usage).catch(this.error);
     }
   }
@@ -346,7 +357,7 @@ class ToonDevice extends OAuth2Device {
     this.gasUsage = data;
 
     // Store new values
-    if (data.hasOwnProperty('dayUsage')) {
+    if (typeof data.dayUsage === 'number') {
       const meterGas = data.dayUsage / 1000; // Wh -> kWh
       this.log('getThermostatData() -> gasUsage -> meter_gas', meterGas);
       this.setCapabilityValue('meter_gas', meterGas).catch(this.error);
@@ -363,16 +374,16 @@ class ToonDevice extends OAuth2Device {
     this.thermostatInfo = data;
 
     // Store new values
-    if (data.hasOwnProperty('currentDisplayTemp')) {
+    if (typeof data.currentDisplayTemp === 'number') {
       this.setCapabilityValue('measure_temperature', Math.round((data.currentDisplayTemp / 100) * 10) / 10).catch(this.error);
     }
-    if (data.hasOwnProperty('currentSetpoint')) {
+    if (typeof data.currentSetpoint === 'number') {
       this.setCapabilityValue('target_temperature', Math.round((data.currentSetpoint / 100) * 10) / 10).catch(this.error);
     }
-    if (data.hasOwnProperty('activeState')) {
+    if (typeof data.activeState === 'number') {
       this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState)).catch(this.error);
     }
-    if (data.hasOwnProperty('currentHumidity')) {
+    if (typeof data.currentHumidity === 'number') {
       if (!this.hasCapability('measure_humidity')) {
         this.addCapability('measure_humidity').catch(this.error);
       } else {
@@ -413,13 +424,14 @@ class ToonDevice extends OAuth2Device {
     let timer = null;
     let resolves = [];
 
-    return function (...args) {
+    // eslint-disable-next-line func-names
+    return function(...args) {
       // Run the function after a certain amount of time
       clearTimeout(timer);
       timer = setTimeout(() => {
         // Get the result of the inner function, then apply it to the resolve function of
         // each promise that has been created since the last time the inner function was run
-        let result = fn(...args);
+        const result = fn(...args);
         resolves.forEach(r => r(result));
         resolves = [];
       }, wait);
@@ -437,12 +449,15 @@ class ToonDevice extends OAuth2Device {
     this.log('onOAuth2Migrate()');
     const oauth2AccountStore = this.getStoreValue('oauth2Account');
 
-    if (!oauth2AccountStore)
+    if (!oauth2AccountStore) {
       throw new Error('Missing OAuth2 Account');
-    if (!oauth2AccountStore.accessToken)
+    }
+    if (!oauth2AccountStore.accessToken) {
       throw new Error('Missing Access Token');
-    if (!oauth2AccountStore.refreshToken)
+    }
+    if (!oauth2AccountStore.refreshToken) {
       throw new Error('Missing Refresh Token');
+    }
 
     const token = new OAuth2Token({
       access_token: oauth2AccountStore.accessToken,
@@ -461,7 +476,7 @@ class ToonDevice extends OAuth2Device {
       sessionId,
       configId,
       token,
-    }
+    };
   }
 
   /**
@@ -471,6 +486,7 @@ class ToonDevice extends OAuth2Device {
   async onOAuth2MigrateSuccess() {
     await this.unsetStoreValue('oauth2Account');
   }
+
 }
 
 module.exports = ToonDevice;
