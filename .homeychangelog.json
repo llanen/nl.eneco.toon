@@ -13,5 +13,8 @@
   },
   "2.2.0": {
     "en": "Added support for humidity measurements, only available on Toon devices with this feature."
+  },
+  "2.3.0": {
+    "en": "Added support for repairing."
   }
 }
