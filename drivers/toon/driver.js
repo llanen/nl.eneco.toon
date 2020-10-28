@@ -15,6 +15,10 @@ class ToonDriver extends OAuth2Driver {
       .register()
       .registerRunListener(args => Promise.resolve(args.device.getCapabilityValue('temperature_state') === args.state));
 
+    new Homey.FlowCardCondition('heating_state_is')
+      .register()
+      .registerRunListener(args => Promise.resolve(args.device.getCapabilityValue('heating_state') === args.state));
+
     new Homey.FlowCardAction('set_temperature_state')
       .register()
       .registerRunListener(args => args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes')));

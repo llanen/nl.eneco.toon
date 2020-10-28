@@ -66,6 +66,52 @@
           }
         }
       ]
+    },
+    "heating_state": {
+      "type": "enum",
+      "title": {
+        "en": "Heating state",
+        "nl": "Verwarmings stand"
+      },
+      "getable": true,
+      "setable": false,
+      "values": [
+        {
+          "id": "off",
+          "title": {
+            "en": "Off",
+            "nl": "Uit"
+          }
+        },
+        {
+          "id": "ch",
+          "title": {
+            "en": "Central Heating",
+            "nl": "Verwarming"
+          }
+        },
+        {
+          "id": "dhw",
+          "title": {
+            "en": "Domestic Hot Water",
+            "nl": "Warm Water"
+          }
+        },
+        {
+          "id": "preheat",
+          "title": {
+            "en": "Preheating",
+            "nl": "Voorverwarmen"
+          }
+        },
+        {
+          "id": "none",
+          "title": {
+            "en": "No state",
+            "nl": "Geen stand"
+          }
+        }
+      ]
     }
   },
   "drivers": [
@@ -85,6 +131,7 @@
         "measure_temperature",
         "measure_humidity",
         "temperature_state",
+        "heating_state",
         "meter_power",
         "measure_power",
         "meter_gas"
@@ -162,6 +209,34 @@
             "filter": "driver_id=toon"
           }
         ]
+      },
+      {
+        "id": "heating_state_changed",
+        "title": {
+          "en": "Heating state changed",
+          "nl": "Verwarmings stand is veranderd"
+        },
+        "tokens": [
+          {
+            "name": "heating_state",
+            "type": "string",
+            "title": {
+              "en": "state",
+              "nl": "stand"
+            },
+            "example": {
+              "en": "Central Heating",
+              "nl": "Verwarming"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=toon"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -208,6 +283,62 @@
                 "label": {
                   "en": "Away",
                   "nl": "Weg"
+                }
+              },
+              {
+                "id": "none",
+                "label": {
+                  "en": "No state",
+                  "nl": "Geen stand"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "heating_state_is",
+        "title": {
+          "en": "Heating state !{{is|isn't}}",
+          "nl": "Verwarmings stand !{{is|is niet}}"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=toon"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "value": "off",
+            "values": [
+              {
+                "id": "off",
+                "label": {
+                  "en": "Off",
+                  "nl": "Uit"
+                }
+              },
+              {
+                "id": "ch",
+                "label": {
+                  "en": "Central Heating",
+                  "nl": "Verwarming"
+                }
+              },
+              {
+                "id": "dhw",
+                "label": {
+                  "en": "Domestic Hot Water",
+                  "nl": "Warm Water"
+                }
+              },
+              {
+                "id": "preheat",
+                "label": {
+                  "en": "Preheating",
+                  "nl": "Voorverwarmen"
                 }
               },
               {

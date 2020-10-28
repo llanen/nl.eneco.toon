@@ -13,6 +13,14 @@ const TEMPERATURE_STATES = {
   none: -1,
 };
 
+const BURNER_INFO_STATES = {
+	off: '0',
+	ch: '1',
+	dhw: '2',
+	preheat: '3',
+	none: '-1'
+};
+
 // TODO: remove flow cards (>=2.0.0 compatible)
 // TODO: remove OAuth2 migration code after a while
 class ToonDevice extends OAuth2Device {
@@ -382,6 +390,9 @@ class ToonDevice extends OAuth2Device {
     }
     if (typeof data.activeState === 'number') {
       this.setCapabilityValue('temperature_state', ToonDevice.getKey(TEMPERATURE_STATES, data.activeState)).catch(this.error);
+    }
+    if (typeof data.burnerInfo === 'string') {
+      this.setCapabilityValue('heating_state', ToonDevice.getKey(BURNER_INFO_STATES, data.burnerInfo)).catch(this.error);
     }
     if (typeof data.currentHumidity === 'number') {
       if (!this.hasCapability('measure_humidity')) {
