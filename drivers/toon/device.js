@@ -324,6 +324,11 @@ class ToonDevice extends OAuth2Device {
         this._processGasUsageData(dataRootObject.gasUsage);
       }
 
+      // Check for water usage information
+      if (dataRootObject.waterUsage) {
+        this._processWaterUsageData(dataRootObject.waterUsage);
+      }
+
       // Check for thermostat information
       if (dataRootObject.thermostatInfo) {
         this._processThermostatInfoData(dataRootObject.thermostatInfo);
@@ -343,14 +348,26 @@ class ToonDevice extends OAuth2Device {
     // Store new values
     if (typeof data.value === 'number') {
       this.log('getThermostatData() -> powerUsage -> measure_power -> value:', data.value);
-      this.setCapabilityValue('measure_power', data.value).catch(this.error);
+      this.setCapabilityValue('measure_power.usage', data.value).catch(this.error);
     }
 
     // Store new values
     if (typeof data.dayUsage === 'number' && typeof data.dayLowUsage === 'number') {
       const usage = (data.dayUsage + data.dayLowUsage) / 1000; // convert from Wh to KWh
       this.log('getThermostatData() -> powerUsage -> meter_power -> dayUsage:', `${data.dayUsage}, dayLowUsage:${data.dayLowUsage}, usage:${usage}`);
-      this.setCapabilityValue('meter_power', usage).catch(this.error);
+      this.setCapabilityValue('meter_power.usage', usage).catch(this.error);
+    }
+
+    // Solar
+    if (typeof data.valueSolar === 'number') {
+      this.log('getThermostatData() -> powerUsage -> measure_power.production -> value:', data.valueSolar);
+      this.setCapabilityValue('measure_power.production', data.valueSolar).catch(this.error);
+    }
+
+    if (typeof data.solarProducedToday === 'number') {
+      const dayProduction = data.solarProducedToday / 1000; // convert from Wh to KWh
+      this.log('getThermostatData() -> solarProducedToday -> measure_power.production -> value:', dayProduction);
+      this.setCapabilityValue('meter_power.production', dayProduction).catch(this.error);
     }
   }
 
@@ -369,6 +386,23 @@ class ToonDevice extends OAuth2Device {
       const meterGas = data.dayUsage / 1000; // Wh -> kWh
       this.log('getThermostatData() -> gasUsage -> meter_gas', meterGas);
       this.setCapabilityValue('meter_gas', meterGas).catch(this.error);
+    }
+  }
+
+  /**
+   * Method that handles the parsing of updated water usage data.
+   * @param data
+   * @private
+   */
+  _processWaterUsageData(data = {}) {
+    // Store data object
+    this.waterUsage = data;
+
+    // Store new values
+    if (typeof data.dayUsage === 'number') {
+      const meterWater = data.dayUsage / 1000; // Wh -> kWh
+      this.log('getThermostatData() -> waterUsage -> meter_water', meterWater);
+      this.setCapabilityValue('meter_water', meterWater).catch(this.error);
     }
   }
 

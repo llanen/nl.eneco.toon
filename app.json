@@ -132,8 +132,11 @@
         "measure_humidity",
         "temperature_state",
         "heating_state",
-        "meter_power",
-        "measure_power",
+        "meter_power.usage",
+        "measure_power.usage",
+        "meter_power.production",
+        "measure_power.production",
+        "meter_water",
         "meter_gas"
       ],
       "capabilitiesOptions": {
